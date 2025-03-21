@@ -1,0 +1,408 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:WMS_Movil"
+             x:Class="WMS_Movil.DetalleHojarechequeo"
+             BackgroundColor="#f8f9fa">
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <local:StringNotEmptyConverter x:Key="StringNotEmptyConverter"/>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Contenido Principal -->
+        <StackLayout Grid.Row="0" Padding="15">
+            <!-- Panel de entrada -->
+            <Frame BackgroundColor="White"
+                   CornerRadius="10"
+                   Padding="12"
+                   Margin="0,5">
+                <StackLayout Spacing="10">
+                    <!-- Selector de Hoja -->
+                    <Picker x:Name="HojaPicker"
+                            Title="Seleccione una hoja"
+                            SelectedIndexChanged="OnHojaSelected"
+                            BackgroundColor="Transparent"/>
+                    <Label x:Name="InventarioIdLabel" 
+                           Text="Inventario #: 0" 
+                           TextColor="#4c51bf" 
+                           FontSize="14" 
+                           FontAttributes="Bold" 
+                           Margin="0,0,0,5" 
+                           IsVisible="False"/>
+
+                    <BoxView HeightRequest="1" BackgroundColor="#e2e8f0" Margin="0,2"/>
+
+                    <!-- Selector de Sucursal y Departamento en grid -->
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <!-- Sucursal -->
+                        <StackLayout Grid.Column="0">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <Image Source="tienda.png"
+                                       HeightRequest="18"
+                                       WidthRequest="18"
+                                       VerticalOptions="Center"
+                                       Margin="0,0,5,0"/>
+                                <Label Grid.Column="1" 
+                                       Text="Sucursal"
+                                       TextColor="#4a5568"
+                                       FontSize="13"/>
+                            </Grid>
+                            <Picker x:Name="SucursalPicker"
+                                   Title="Seleccione sucursal"
+                                   SelectedIndexChanged="SucursalPicker_SelectedIndexChanged"
+                                   FontSize="14"/>
+                            <Label x:Name="RazonSocialLabel"
+                                   Text=""
+                                   TextColor="#4c51bf"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   Margin="0,0,0,2"
+                                   IsVisible="False"/>
+                        </StackLayout>
+
+                        <!-- Departamento -->
+                        <StackLayout Grid.Column="1">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <Image Source="departamento.png"
+                                       HeightRequest="18"
+                                       WidthRequest="18"
+                                       VerticalOptions="Center"
+                                       Margin="0,0,5,0"/>
+                                <Label Grid.Column="1"
+                                       Text="Departamento"
+                                       TextColor="#4a5568"
+                                       FontSize="13"/>
+                            </Grid>
+                            <Picker x:Name="DepartamentoPicker"
+                                   Title="Seleccione departamento"
+                                   SelectedIndexChanged="OnDepartamentoSelected"
+                                   FontSize="14"/>
+                        </StackLayout>
+                    </Grid>
+
+                    <!-- UPC -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" Margin="0,0,0,10">
+                        <!-- Columna izquierda: UPC y Cantidad -->
+                        <StackLayout Grid.Column="0" Spacing="10">
+                            <!-- UPC -->
+                            <StackLayout Spacing="2">
+                                <Label Text="UPC"
+                   TextColor="#4a5568"
+                   FontSize="13"
+                   Margin="0,0,0,0"/>
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <Image Source="scan.png"
+                       HeightRequest="18"
+                       WidthRequest="18"
+                       VerticalOptions="Center"
+                       HorizontalOptions="Start"
+                       Margin="0,0,5,0"/>
+                                    <Entry Grid.Column="1"
+                       x:Name="UpcEntry"
+                       Placeholder="Escanee o ingrese UPC"
+                       TextColor="#2d3748"
+                       ReturnType="Next"
+                       Keyboard="Numeric"
+                       FontSize="14"
+                       HeightRequest="40"/>
+                                </Grid>
+                            </StackLayout>
+
+                            <!-- Cantidad -->
+                            <StackLayout Spacing="2">
+                                <Label Text="Cantidad"
+                   TextColor="#4a5568"
+                   FontSize="13"
+                   Margin="0,0,0,0"/>
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <Image Source="cantidad.png"
+                       HeightRequest="18"
+                       WidthRequest="18"
+                       VerticalOptions="Center"
+                       HorizontalOptions="Start"
+                       Margin="0,0,5,0"/>
+                                    <Entry Grid.Column="1"
+                       x:Name="CantidadEntry"
+                       Placeholder="Cantidad"
+                       TextColor="#2d3748"
+                       Keyboard="Numeric"
+                       FontSize="14"
+                       HeightRequest="40"/>
+                                </Grid>
+                            </StackLayout>
+
+                            <!-- Botón de Confirmar -->
+                            <Button Text="CONFIRMAR"
+                BackgroundColor="#48BB78"
+                TextColor="White"
+                CornerRadius="8"
+                HeightRequest="45"
+                FontAttributes="Bold"
+                FontSize="15"
+                Margin="0,10,0,0"
+                Clicked="OnConfirmarClicked"/>
+                        </StackLayout>
+
+                        <!-- Columna derecha: Teclado numérico -->
+                        <Grid Grid.Column="1"
+          RowDefinitions="Auto,Auto,Auto,Auto"
+          ColumnDefinitions="Auto,Auto,Auto"
+          VerticalOptions="Start"
+          Margin="5,25,0,0">
+                            <!-- Fila 1: 1, 2, 3 -->
+                            <Button Text="1" Grid.Row="0" Grid.Column="0" 
+                BackgroundColor="#f7fafc" TextColor="#2d3748"
+                CornerRadius="5" Margin="2" HeightRequest="45" WidthRequest="45"
+                Clicked="OnNumericButtonClicked"/>
+                            <Button Text="2" Grid.Row="0" Grid.Column="1" 
+                BackgroundColor="#f7fafc" TextColor="#2d3748"
+                CornerRadius="5" Margin="2" HeightRequest="45" WidthRequest="45"
+                Clicked="OnNumericButtonClicked"/>
+                            <Button Text="3" Grid.Row="0" Grid.Column="2" 
+                BackgroundColor="#f7fafc" TextColor="#2d3748"
+                CornerRadius="5" Margin="2" HeightRequest="45" WidthRequest="45"
+                Clicked="OnNumericButtonClicked"/>
+
+                            <!-- Fila 2: 4, 5, 6 -->
+                            <Button Text="4" Grid.Row="1" Grid.Column="0" 
+                BackgroundColor="#f7fafc" TextColor="#2d3748"
+                CornerRadius="5" Margin="2" HeightRequest="45" WidthRequest="45"
+                Clicked="OnNumericButtonClicked"/>
+                            <Button Text="5" Grid.Row="1" Grid.Column="1" 
+                BackgroundColor="#f7fafc" TextColor="#2d3748"
+                CornerRadius="5" Margin="2" HeightRequest="45" WidthRequest="45"
+                Clicked="OnNumericButtonClicked"/>
+                            <Button Text="6" Grid.Row="1" Grid.Column="2" 
+                BackgroundColor="#f7fafc" TextColor="#2d3748"
+                CornerRadius="5" Margin="2" HeightRequest="45" WidthRequest="45"
+                Clicked="OnNumericButtonClicked"/>
+
+                            <!-- Fila 3: 7, 8, 9 -->
+                            <Button Text="7" Grid.Row="2" Grid.Column="0" 
+                BackgroundColor="#f7fafc" TextColor="#2d3748"
+                CornerRadius="5" Margin="2" HeightRequest="45" WidthRequest="45"
+                Clicked="OnNumericButtonClicked"/>
+                            <Button Text="8" Grid.Row="2" Grid.Column="1" 
+                BackgroundColor="#f7fafc" TextColor="#2d3748"
+                CornerRadius="5" Margin="2" HeightRequest="45" WidthRequest="45"
+                Clicked="OnNumericButtonClicked"/>
+                            <Button Text="9" Grid.Row="2" Grid.Column="2" 
+                BackgroundColor="#f7fafc" TextColor="#2d3748"
+                CornerRadius="5" Margin="2" HeightRequest="45" WidthRequest="45"
+                Clicked="OnNumericButtonClicked"/>
+
+                            <!-- Fila 4: Borrar, 0, Limpiar -->
+                            <Button x:Name="BackspaceButton" Text="⌫" Grid.Row="3" Grid.Column="0" 
+                BackgroundColor="#CBD5E0" TextColor="#2d3748"
+                CornerRadius="5" Margin="2" HeightRequest="45" WidthRequest="45"
+                Clicked="OnBackspaceButtonClicked"/>
+                            <Button Text="0" Grid.Row="3" Grid.Column="1" 
+                BackgroundColor="#f7fafc" TextColor="#2d3748"
+                CornerRadius="5" Margin="2" HeightRequest="45" WidthRequest="45"
+                Clicked="OnNumericButtonClicked"/>
+                            <Button x:Name="ClearButton" Text="C" Grid.Row="3" Grid.Column="2" 
+                                    BackgroundColor="#CBD5E0" TextColor="#2d3748"
+                                    CornerRadius="5" Margin="2" HeightRequest="45" WidthRequest="45"
+                                    Clicked="OnClearButtonClicked"/>
+                        </Grid>
+                    </Grid>
+                </StackLayout>
+            </Frame>
+        </StackLayout>
+        <!-- Lista de productos -->
+        <ScrollView Grid.Row="1">
+            <StackLayout Padding="15,0,15,15">
+                <CollectionView x:Name="ProductosCollection"
+                              SelectionMode="Single"
+                              SelectionChanged="OnProductoSelected">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Frame Margin="0,0,0,10"
+                                   CornerRadius="10"
+                                   BackgroundColor="White"
+                                   HasShadow="True"
+                                   BorderColor="{Binding ColorEstado}">
+                                <Grid Padding="10" RowSpacing="8">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- UPC y Estado -->
+                                    <Grid Grid.Row="0">
+                                        <Label Text="{Binding UpcPaquete}"
+                                               TextColor="#2d3748"
+                                               FontAttributes="Bold"
+                                               FontSize="16"/>
+                                        <Frame IsVisible="{Binding EstaVerificado}"
+                                               BackgroundColor="#48BB78"
+                                               CornerRadius="15"
+                                               Padding="10,5"
+                                               HorizontalOptions="End">
+                                            <Label Text="{Binding EstadoVerificacion}"
+                                                   TextColor="White"
+                                                   FontSize="12"/>
+                                        </Frame>
+                                    </Grid>
+
+                                    <!-- Descripción -->
+                                    <Label Grid.Row="1"
+                                           Text="{Binding Descripcion}"
+                                           TextColor="#4a5568"
+                                           FontSize="14"/>
+
+                                    <!-- Cantidades -->
+                                    <Grid Grid.Row="2" 
+                                          ColumnDefinitions="*,*,*" 
+                                          ColumnSpacing="10">
+                                        <Frame BackgroundColor="#EDF2F7" 
+                                               CornerRadius="5"
+                                               Padding="8">
+                                            <StackLayout>
+                                                <Label Text="Solicitada"
+                                                       FontSize="12"
+                                                       TextColor="#4A5568"/>
+                                                <Label Text="{Binding CantidadSolicitada}"
+                                                       FontAttributes="Bold"
+                                                       TextColor="#2D3748"/>
+                                            </StackLayout>
+                                        </Frame>
+
+                                        <Frame Grid.Column="1"
+                                               BackgroundColor="#EDF2F7"
+                                               CornerRadius="5"
+                                               Padding="8">
+                                            <StackLayout>
+                                                <Label Text="Preparada"
+                                                       FontSize="12"
+                                                       TextColor="#4A5568"/>
+                                                <Label Text="{Binding CantidadPreparada}"
+                                                       FontAttributes="Bold"
+                                                       TextColor="#48BB78"/>
+                                            </StackLayout>
+                                        </Frame>
+
+                                        <Frame Grid.Column="2"
+                                               BackgroundColor="#EDF2F7"
+                                               CornerRadius="5"
+                                               Padding="8">
+                                            <StackLayout>
+                                                <Label Text="Unidad x Fardo"
+                                                       FontSize="12"
+                                                       TextColor="#4A5568"/>
+                                                <Label Text="{Binding UnidadPaquete}"
+                                                       FontAttributes="Bold"
+                                                       TextColor="#4C51BF"/>
+                                            </StackLayout>
+                                        </Frame>
+                                    </Grid>
+
+                                    <!-- Información adicional -->
+                                    <StackLayout Grid.Row="3" Spacing="5">
+                                        <Label Text="{Binding NombreCompleto, StringFormat='Preparado por: {0}'}"
+                                               TextColor="#718096"
+                                               FontSize="12"/>
+                                        <Label Text="{Binding DescripcionMotivo, StringFormat='Motivo: {0}'}"
+                                               TextColor="#718096"
+                                               FontSize="12"/>
+                                    </StackLayout>
+
+                                    <!-- Alertas -->
+                                    <Frame Grid.Row="4" 
+                                           IsVisible="{Binding CantidadCero}"
+                                           BackgroundColor="#E53E3E"
+                                           Padding="8"
+                                           Margin="0,5,0,0"
+                                           CornerRadius="5">
+                                        <StackLayout Orientation="Horizontal" Spacing="5">
+                                            <Image Source="alerta.png"
+                                                   HeightRequest="16"
+                                                   WidthRequest="16"
+                                                   VerticalOptions="Center"/>
+                                            <Label Text="{Binding DescripcionMotivo, StringFormat='Motivo: {0}'}"
+                                                   TextColor="White"
+                                                   FontSize="12"
+                                                   FontAttributes="Bold"
+                                                   VerticalOptions="Center"/>
+                                        </StackLayout>
+                                    </Frame>
+
+                                    <Frame Grid.Row="4" 
+                                           IsVisible="{Binding CantidadMayor}"
+                                           BackgroundColor="#ECC94B"
+                                           Padding="8"
+                                           Margin="0,5,0,0"
+                                           CornerRadius="5">
+                                        <StackLayout Orientation="Horizontal" Spacing="5">
+                                            <Image Source="alerta.png"
+                                                   HeightRequest="16"
+                                                   WidthRequest="16"
+                                                   VerticalOptions="Center"/>
+                                            <Label Text="Cantidad preparada mayor a la solicitada"
+                                                   TextColor="White"
+                                                   FontSize="12"
+                                                   FontAttributes="Bold"
+                                                   VerticalOptions="Center"/>
+                                        </StackLayout>
+                                    </Frame>
+
+                                    <Frame Grid.Row="4" 
+                                           IsVisible="{Binding CantidadMenor}"
+                                           BackgroundColor="#ED8936"
+                                           Padding="8"
+                                           Margin="0,5,0,0"
+                                           CornerRadius="5">
+                                        <StackLayout Orientation="Horizontal" Spacing="5">
+                                            <Image Source="alerta.png"
+                                                   HeightRequest="16"
+                                                   WidthRequest="16"
+                                                   VerticalOptions="Center"/>
+                                            <Label Text="Cantidad preparada menor a la solicitada"
+                                                   TextColor="White"
+                                                   FontSize="12"
+                                                   FontAttributes="Bold"
+                                                   VerticalOptions="Center"/>
+                                        </StackLayout>
+                                    </Frame>
+                                </Grid>
+                            </Frame>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </StackLayout>
+        </ScrollView>
+
+        <!-- Overlay de Carga -->
+        <Grid x:Name="LoadingOverlay" 
+              IsVisible="False"
+              BackgroundColor="#80000000"
+              Grid.RowSpan="2">
+            <Frame BackgroundColor="White"
+                   CornerRadius="10"
+                   HeightRequest="100"
+                   WidthRequest="100"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center">
+                <StackLayout>
+                    <ActivityIndicator IsRunning="True"
+                                     Color="#4c51bf"
+                                     HeightRequest="50"
+                                     WidthRequest="50"/>
+                    <Label Text="Cargando..."
+                           TextColor="#2C3E50"
+                           HorizontalOptions="Center"/>
+                </StackLayout>
+            </Frame>
+        </Grid>
+    </Grid>
+</ContentPage>

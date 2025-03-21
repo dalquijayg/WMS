@@ -1,0 +1,186 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WMS_Movil.DetalleHojaunbicaciones"
+             BackgroundColor="#f8f9fa">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Contenido Principal -->
+        <StackLayout Padding="15">
+            <!-- Título y filtro por hoja -->
+            <Frame BackgroundColor="White"
+       CornerRadius="10"
+       Padding="15"
+       Margin="0,0,0,15">
+                <StackLayout Spacing="10">
+                    <Label Text="Ubicaciones por Hoja"
+               FontSize="20"
+               TextColor="#2d3748"
+               FontAttributes="Bold"
+               HorizontalOptions="Center"/>
+
+                    <Frame Padding="10" 
+       HasShadow="False"
+       BorderColor="#e2e8f0">
+                        <StackLayout Spacing="0">
+                            <Grid>
+                                <StackLayout Spacing="5">
+                                    <!-- Picker estilizado -->
+                                    <Picker x:Name="HojaPicker"
+                        Title="Seleccione una hoja"
+                        SelectedIndexChanged="OnHojaSelected"
+                        TextColor="#2d3748"
+                        FontAttributes="Bold"
+                        FontSize="16"/>
+
+                                    <!-- Línea separadora -->
+                                    <BoxView HeightRequest="1"
+                                             BackgroundColor="#e2e8f0"
+                                             Margin="0,5"/>
+                                    <!-- Estado de preparación -->
+                                    <StackLayout Orientation="Horizontal" 
+                                                 Spacing="5"
+                                                 Margin="0,5,0,0">
+                                        <Label Text="Estado:"
+                                               TextColor="#718096"
+                                               FontSize="14"/>
+                                        <Label x:Name="EstadoLabel"
+                                               Text="{Binding Source={x:Reference UbicacionesCollection}, Path=ItemsSource[0].EstadoPreparacion}"
+                                               TextColor="{Binding Source={x:Reference UbicacionesCollection}, Path=ItemsSource[0].ColorEstado}"
+                                               FontSize="14"/>
+                                    </StackLayout>
+                                </StackLayout>
+                            </Grid>
+                        </StackLayout>
+                    </Frame>
+                </StackLayout>
+            </Frame>
+            <!-- Lista de ubicaciones -->
+            <CollectionView x:Name="UbicacionesCollection"
+                           SelectionMode="Single"
+                           SelectionChanged="OnUbicacionSelected">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Frame Margin="0,0,0,10"
+                               CornerRadius="10"
+                               BackgroundColor="White"
+                               HasShadow="True">
+                            <Grid Padding="10" RowSpacing="8">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Información de Ubicación -->
+                                <StackLayout Grid.Row="0" 
+                                           Orientation="Horizontal" 
+                                           Spacing="15">
+                                    <Label Text="{Binding Descripcion}"
+                                           TextColor="#2d3748"
+                                           FontAttributes="Bold"
+                                           FontSize="16"/>
+                                    <Label Text="{Binding Rack, StringFormat='Rack: {0}'}"
+                                           TextColor="#4a5568"/>
+                                    <Label Text="{Binding Nivel, StringFormat='Nivel: {0}'}"
+                                           TextColor="#4a5568"/>
+                                </StackLayout>
+
+                                <!-- Barra de Progreso -->
+                                <Frame Grid.Row="1" 
+                                       Padding="0" 
+                                       CornerRadius="5" 
+                                       BackgroundColor="#e2e8f0">
+                                    <Frame HorizontalOptions="StartAndExpand"
+                                           Padding="0"
+                                           CornerRadius="5"
+                                           BackgroundColor="{Binding ProgressColor}"
+                                           WidthRequest="{Binding ProgressWidth}">
+                                        <Label Text="{Binding ProgressText}"
+                                               HorizontalOptions="Center"
+                                               TextColor="White"
+                                               FontSize="12"/>
+                                    </Frame>
+                                </Frame>
+
+                                <!-- Estadísticas -->
+                                <Grid Grid.Row="2" 
+                                      ColumnDefinitions="*,*,*" 
+                                      ColumnSpacing="10">
+                                    <Frame BackgroundColor="#EDF2F7" 
+                                           CornerRadius="5"
+                                           Padding="8">
+                                        <StackLayout>
+                                            <Label Text="Total SKUs"
+                                                   FontSize="12"
+                                                   TextColor="#4A5568"/>
+                                            <Label Text="{Binding TotalUPC}"
+                                                   FontAttributes="Bold"
+                                                   TextColor="#2D3748"/>
+                                        </StackLayout>
+                                    </Frame>
+
+                                    <Frame Grid.Column="1"
+                                           BackgroundColor="#EDF2F7"
+                                           CornerRadius="5"
+                                           Padding="8">
+                                        <StackLayout>
+                                            <Label Text="Completadas"
+                                                   FontSize="12"
+                                                   TextColor="#4A5568"/>
+                                            <Label Text="{Binding LineasCompletadas}"
+                                                   FontAttributes="Bold"
+                                                   TextColor="#48BB78"/>
+                                        </StackLayout>
+                                    </Frame>
+
+                                    <Frame Grid.Column="2"
+                                           BackgroundColor="#EDF2F7"
+                                           CornerRadius="5"
+                                           Padding="8">
+                                        <StackLayout>
+                                            <Label Text="Total Líneas"
+                                                   FontSize="12"
+                                                   TextColor="#4A5568"/>
+                                            <Label Text="{Binding TotalLineas}"
+                                                   FontAttributes="Bold"
+                                                   TextColor="#4C51BF"/>
+                                        </StackLayout>
+                                    </Frame>
+                                </Grid>
+                            </Grid>
+                        </Frame>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </StackLayout>
+
+        <!-- Overlay de Carga -->
+        <Grid x:Name="LoadingOverlay" 
+              IsVisible="False"
+              BackgroundColor="#80000000">
+            <Frame BackgroundColor="White"
+                   CornerRadius="10"
+                   HeightRequest="100"
+                   WidthRequest="100"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center">
+                <StackLayout>
+                    <ActivityIndicator IsRunning="True"
+                                     Color="#E1251D"
+                                     HeightRequest="50"
+                                     WidthRequest="50"
+                                     HorizontalOptions="Center"
+                                     VerticalOptions="Center" />
+                    <Label Text="Cargando..."
+                           TextColor="#2C3E50"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center" />
+                </StackLayout>
+            </Frame>
+        </Grid>
+    </Grid>
+</ContentPage>

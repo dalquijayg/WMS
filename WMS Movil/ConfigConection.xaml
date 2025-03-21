@@ -1,0 +1,94 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WMS_Movil.ConfigConection"
+             BackgroundColor="Black">
+    <ContentPage.Content>
+        <ScrollView>
+            <Frame Margin="20"
+               CornerRadius="15"
+               HasShadow="True"
+               BackgroundColor="White">
+
+                <StackLayout Spacing="20">
+                    <!-- Cabecera -->
+                    <StackLayout Spacing="10" 
+                           HorizontalOptions="Center" 
+                           Margin="0,0,0,20">
+                        <Image Source="configuracion.png" 
+                           HeightRequest="80"/>
+                        <Label Text="Configuración de Conexión"
+                           FontSize="24"
+                           TextColor="#2d3748"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center"/>
+                    </StackLayout>
+
+                    <!-- Campos de entrada -->
+                    <Frame BorderColor="#e2e8f0" 
+                       Padding="15" 
+                       CornerRadius="10"
+                       HasShadow="False">
+                        <StackLayout Spacing="15">
+                            <Entry x:Name="IpEntry"
+                               Placeholder="Dirección IP"
+                               PlaceholderColor="#a0aec0"
+                               TextColor="#2d3748"
+                               ReturnType="Next"
+                               Completed="OnEntryCompleted"/>
+
+                            <BoxView HeightRequest="1" 
+                                Color="#e2e8f0"/>
+
+                            <Entry x:Name="UserEntry"
+                               Placeholder="Usuario"
+                               PlaceholderColor="#a0aec0"
+                               TextColor="#2d3748"
+                               ReturnType="Next"
+                               Completed="OnEntryCompleted"/>
+
+                            <BoxView HeightRequest="1" 
+                                Color="#e2e8f0"/>
+
+                            <Entry x:Name="PasswordEntry"
+                               Placeholder="Contraseña"
+                               PlaceholderColor="#a0aec0"
+                               TextColor="#2d3748"
+                               IsPassword="True"
+                               ReturnType="Done"
+                               Completed="OnEntryCompleted"/>
+                        </StackLayout>
+                    </Frame>
+
+                    <!-- Selector de base de datos -->
+                    <Frame BorderColor="#e2e8f0" 
+                       Padding="15" 
+                       CornerRadius="10"
+                       HasShadow="False">
+                        <StackLayout>
+                            <Label Text="Base de Datos"
+                               TextColor="#4a5568"
+                               FontSize="14"
+                               Margin="0,0,0,5"/>
+                            <Picker x:Name="DatabasePicker"
+                                Title="Seleccione Base de Datos"
+                                TitleColor="#a0aec0"
+                                TextColor="#2d3748"/>
+                        </StackLayout>
+                    </Frame>
+
+                    <!-- Botón de guardar -->
+                    <Button x:Name="saveButton"
+                        Text="Guardar Configuración"
+                        Clicked="OnSaveClicked"
+                        BackgroundColor="#4c51bf"
+                        TextColor="White"
+                        CornerRadius="10"
+                        HeightRequest="50"
+                        FontAttributes="Bold"
+                        Margin="0,10,0,0"/>
+                </StackLayout>
+            </Frame>
+        </ScrollView>
+    </ContentPage.Content>
+</ContentPage>
