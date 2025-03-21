@@ -21,6 +21,7 @@ namespace WMS_Movil
             {
                 MainPage = new ConfigConection();
             }
+
         }
         private bool ConfigExistente()
         {   
@@ -35,8 +36,12 @@ namespace WMS_Movil
                    !string.IsNullOrEmpty(Preferences.Get("selected_database", ""));
         }
 
-        protected override void OnStart()
+        protected override async void OnStart()
         {
+            base.OnStart();
+
+            // Verificar si hay actualizaciones disponibles
+            await UpdateChecker.CheckForUpdate();
         }
 
         protected override void OnSleep()
