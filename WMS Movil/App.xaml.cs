@@ -42,6 +42,12 @@ namespace WMS_Movil
 
             // Verificar si hay actualizaciones disponibles
             await UpdateChecker.CheckForUpdate();
+
+            // Después de verificar actualizaciones, establecer la página correcta
+            if (ConfigExistente())
+            {
+                MainPage = new NavigationPage(new Ingreso());
+            }
         }
 
         protected override void OnSleep()
