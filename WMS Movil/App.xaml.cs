@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Xamarin.Essentials;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
@@ -13,8 +14,8 @@ namespace WMS_Movil
         public App()
         {
             InitializeComponent();
-
-            if (ConfigExistente()) {
+            if (ConfigExistente())
+            {
                 MainPage = new NavigationPage(new Ingreso());
             }
             else
@@ -40,14 +41,12 @@ namespace WMS_Movil
         {
             base.OnStart();
 
-            // Verificar si hay actualizaciones disponibles
-            await UpdateChecker.CheckForUpdate();
-
-            // Después de verificar actualizaciones, establecer la página correcta
-            if (ConfigExistente())
-            {
-                MainPage = new NavigationPage(new Ingreso());
-            }
+            // Iniciar la verificación de actualizaciones sin await
+            Device.BeginInvokeOnMainThread(async () => {
+                // Pequeño retraso para asegurar que la UI esté cargada
+                await Task.Delay(1000);
+                await UpdateChecker.CheckForUpdate();
+            });
         }
 
         protected override void OnSleep()

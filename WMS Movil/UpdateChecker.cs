@@ -65,12 +65,43 @@ namespace WMS_Movil
                     }
                 }
             }
+            catch (HttpRequestException ex) when (ex.Message.Contains("404"))
+            {
+                // No hay releases todavía, simplemente continuar silenciosamente
+                Console.WriteLine("No releases found on GitHub yet.");
+            }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al verificar actualizaciones: {ex.Message}");
             }
 
             return false;
+        }
+
+        private static async Task<GitHubRelease> GetLatestRelease()
+        {
+            try
+            {
+                using (var client = new HttpClient())
+                {
+                    // Agregar User-Agent header (requerido por GitHub API)
+                    client.DefaultRequestHeaders.Add("User-Agent", "WMS-App");
+
+                    var response = await client.GetStringAsync(GITHUB_API_URL);
+                    return JsonConvert.DeserializeObject<GitHubRelease>(response);
+                }
+            }
+            catch (HttpRequestException ex) when (ex.Message.Contains("404"))
+            {
+                // No hay releases todavía
+                Console.WriteLine("No releases found on GitHub yet.");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting latest release: {ex.Message}");
+                return null;
+            }
         }
 
         private static AppVersion GetCurrentVersion()
@@ -85,17 +116,7 @@ namespace WMS_Movil
             };
         }
 
-        private static async Task<GitHubRelease> GetLatestRelease()
-        {
-            using (var client = new HttpClient())
-            {
-                // Agregar User-Agent header (requerido por GitHub API)
-                client.DefaultRequestHeaders.Add("User-Agent", "WMS-App");
-
-                var response = await client.GetStringAsync(GITHUB_API_URL);
-                return JsonConvert.DeserializeObject<GitHubRelease>(response);
-            }
-        }
+        
 
         private static int ConvertVersionNameToCode(string versionName)
         {
