@@ -34,7 +34,16 @@ namespace WMS_Movil
         {
             IsPasswordHidden = !IsPasswordHidden;
         }
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
 
+            // Obtener la versión actual de la aplicación
+            string version = Xamarin.Essentials.VersionTracking.CurrentVersion;
+
+            // Actualizar la etiqueta de versión
+            VersionLabel.Text = $"Versión: {version}";
+        }
         private async void OnLoginClicked(object sender, EventArgs e)
         {
 

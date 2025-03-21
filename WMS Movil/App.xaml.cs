@@ -37,7 +37,7 @@ namespace WMS_Movil
                    !string.IsNullOrEmpty(Preferences.Get("selected_database", ""));
         }
 
-        protected override async void OnStart()
+        protected override void OnStart()
         {
             base.OnStart();
 

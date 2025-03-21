@@ -115,7 +115,14 @@
                        HorizontalOptions="Center"
                        VerticalOptions="Center" />
             </StackLayout>
-        </Frame>
-    </Grid>
+            </Frame>
+                <Label Grid.Row="2"
+                       x:Name="VersionLabel"
+                       Text="Versión: 1.0.0"
+                       TextColor="#718096"
+                       FontSize="12"
+                       HorizontalOptions="Center"
+                       Margin="0,0,0,15"/>
+        </Grid>
     </Grid>
 </ContentPage>
