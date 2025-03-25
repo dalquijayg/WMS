@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Xamarin.Essentials;
 using Xamarin.Forms;
@@ -11,9 +12,12 @@ namespace WMS_Movil
         public static int IdUsuarioActual { get; set; }
         public static string NombreUsuarioActual { get; set; }
         public static int NivelUsuarioActual { get; set; }
+
+        private readonly UpdateChecker _updateService;
         public App()
         {
             InitializeComponent();
+            _updateService = new UpdateChecker();
             if (ConfigExistente())
             {
                 MainPage = new NavigationPage(new Ingreso());
@@ -39,14 +43,7 @@ namespace WMS_Movil
 
         protected override void OnStart()
         {
-            base.OnStart();
-
-            // Iniciar la verificación de actualizaciones sin await
-            Device.BeginInvokeOnMainThread(async () => {
-                // Pequeño retraso para asegurar que la UI esté cargada
-                await Task.Delay(1000);
-                await UpdateChecker.CheckForUpdate();
-            });
+            CheckForUpdatesAsync();
         }
 
         protected override void OnSleep()
@@ -55,6 +52,36 @@ namespace WMS_Movil
 
         protected override void OnResume()
         {
+        }
+        private async void CheckForUpdatesAsync()
+        {
+            try
+            {
+                bool updateAvailable = await _updateService.CheckForUpdate();
+
+                if (updateAvailable)
+                {
+                    var appVersion = await _updateService.GetLatestVersion();
+
+                    if (appVersion != null)
+                    {
+                        // Mostrar diálogo de actualización
+                        bool userAccepted = await Current.MainPage.DisplayAlert(
+                            "Actualización disponible",
+                            $"Hay una nueva versión disponible ({appVersion.Version}).\n\nNotas de la versión:\n{appVersion.ReleaseNotes}\n\n¿Desea actualizar ahora?",
+                            "Actualizar", "Más tarde");
+
+                        if (userAccepted)
+                        {
+                            await _updateService.DownloadAndInstallUpdate(appVersion.DownloadUrl);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error en verificación de actualizaciones: {ex.Message}");
+            }
         }
     }
 }

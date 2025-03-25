@@ -5,117 +5,95 @@
              x:Class="WMS_Movil.Ingreso"
              BackgroundColor= "White">
     <Grid>
-    <ScrollView>
-        <Grid RowDefinitions="Auto,*,Auto">
-            <!-- Logo desarrollador -->
-            <Image Grid.Row="0"
-                   Source="Logo3.JPG" 
-                   HeightRequest="140"
-                   Aspect="AspectFit"
-                   HorizontalOptions="End"
-                   Margin="0,10,10,0">
-                <Image.GestureRecognizers>
-                    <TapGestureRecognizer NumberOfTapsRequired="2" 
-                              Tapped="OnLogoTapped"/>
-                </Image.GestureRecognizers>
-            </Image>
+        <ScrollView>
+            <Grid RowDefinitions="Auto,*,Auto">
+                <!-- Logo desarrollador -->
+                <Image Grid.Row="0"
+                       Source="Logo3.JPG" 
+                       HeightRequest="140"
+                       Aspect="AspectFit"
+                       HorizontalOptions="End"
+                       Margin="0,10,10,0">
+                    <Image.GestureRecognizers>
+                        <TapGestureRecognizer NumberOfTapsRequired="2" 
+                                  Tapped="OnLogoTapped"/>
+                    </Image.GestureRecognizers>
+                </Image>
 
-            <!-- Contenido principal -->
-            <Frame Grid.Row="1"
-                   Margin="20"
-                   CornerRadius="15"
-                   HasShadow="True"
-                   BackgroundColor="White">
+                <!-- Contenido principal -->
+                <Frame Grid.Row="1"
+                       Margin="20"
+                       CornerRadius="15"
+                       HasShadow="True"
+                       BackgroundColor="White">
 
-                <StackLayout Spacing="25">
-                    <!-- Icono de login -->
-                    <Image Source="contrasena.png" 
-                           HeightRequest="100"
-                           Aspect="AspectFit"
-                           Margin="0,10"/>
+                    <StackLayout Spacing="25">
+                        <!-- Icono de login -->
+                        <Image Source="contrasena.png" 
+                               HeightRequest="100"
+                               Aspect="AspectFit"
+                               Margin="0,10"/>
 
-                    <!-- Título -->
-                    <Label Text="Iniciar Sesión"
-                           FontSize="28"
-                           TextColor="#2d3748"
-                           FontAttributes="Bold"
-                           HorizontalOptions="Center"/>
+                        <!-- Título -->
+                        <Label Text="Iniciar Sesión"
+                               FontSize="28"
+                               TextColor="#2d3748"
+                               FontAttributes="Bold"
+                               HorizontalOptions="Center"/>
 
-                    <!-- Campos de entrada -->
-                    <Frame BorderColor="#e2e8f0" 
-                           Padding="15" 
-                           CornerRadius="10"
-                           HasShadow="False">
-                        <StackLayout Spacing="20">
-                            <!-- Usuario -->
-                            <StackLayout>
-                                <Label Text="Usuario"
-                                       TextColor="#4a5568"
-                                       FontSize="14"/>
-                                <Entry x:Name="UserEntry"
-                                       Placeholder="Ingrese su usuario"
-                                       PlaceholderColor="#a0aec0"
-                                       TextColor="#2d3748"/>
-                            </StackLayout>
-
-                            <!-- Contraseña -->
-                            <StackLayout>
-                                <Label Text="Contraseña"
-                                       TextColor="#4a5568"
-                                       FontSize="14"/>
-                                <Grid>
-                                    <Entry x:Name="PasswordEntry"
-                                           Placeholder="Ingrese su contraseña"
-                                           IsPassword="{Binding IsPasswordHidden}"
+                        <!-- Campos de entrada -->
+                        <Frame BorderColor="#e2e8f0" 
+                               Padding="15" 
+                               CornerRadius="10"
+                               HasShadow="False">
+                            <StackLayout Spacing="20">
+                                <!-- Usuario -->
+                                <StackLayout>
+                                    <Label Text="Usuario"
+                                           TextColor="#4a5568"
+                                           FontSize="14"/>
+                                    <Entry x:Name="UserEntry"
+                                           Placeholder="Ingrese su usuario"
                                            PlaceholderColor="#a0aec0"
                                            TextColor="#2d3748"/>
-                                    <ImageButton Source="contrasena.png"
-                                               HeightRequest="20"
-                                               HorizontalOptions="End"
-                                               VerticalOptions="Center"
-                                               Margin="0,0,10,0"
-                                               BackgroundColor="Transparent"
-                                               Clicked="OnTogglePassword"/>
-                                </Grid>
-                            </StackLayout>
-                        </StackLayout>
-                    </Frame>
+                                </StackLayout>
 
-                    <!-- Botón de ingreso -->
-                    <Button x:Name="LoginButton"
-                            Text="Ingresar"
-                            Clicked="OnLoginClicked"
-                            BackgroundColor="#4c51bf"
-                            TextColor="White"
-                            CornerRadius="10"
-                            HeightRequest="50"
-                            FontAttributes="Bold"/>
-                </StackLayout>
-            </Frame>
-        </Grid>
-    </ScrollView>
-    <Grid x:Name="LoadingOverlay" 
-          IsVisible="false"
-          BackgroundColor="#80000000">
-        <Frame BackgroundColor="White"
-               CornerRadius="10"
-               HeightRequest="100"
-               WidthRequest="100"
-               HorizontalOptions="Center"
-               VerticalOptions="Center">
-            <StackLayout>
-                <ActivityIndicator IsRunning="True"
-                                 Color="#E1251D"
-                                 HeightRequest="50"
-                                 WidthRequest="50"
-                                 HorizontalOptions="Center"
-                                 VerticalOptions="Center" />
-                <Label Text="Cargando..."
-                       TextColor="#2C3E50"
-                       HorizontalOptions="Center"
-                       VerticalOptions="Center" />
-            </StackLayout>
-            </Frame>
+                                <!-- Contraseña -->
+                                <StackLayout>
+                                    <Label Text="Contraseña"
+                                           TextColor="#4a5568"
+                                           FontSize="14"/>
+                                    <Grid>
+                                        <Entry x:Name="PasswordEntry"
+                                               Placeholder="Ingrese su contraseña"
+                                               IsPassword="{Binding IsPasswordHidden}"
+                                               PlaceholderColor="#a0aec0"
+                                               TextColor="#2d3748"/>
+                                        <ImageButton Source="contrasena.png"
+                                                   HeightRequest="20"
+                                                   HorizontalOptions="End"
+                                                   VerticalOptions="Center"
+                                                   Margin="0,0,10,0"
+                                                   BackgroundColor="Transparent"
+                                                   Clicked="OnTogglePassword"/>
+                                    </Grid>
+                                </StackLayout>
+                            </StackLayout>
+                        </Frame>
+
+                        <!-- Botón de ingreso -->
+                        <Button x:Name="LoginButton"
+                                Text="Ingresar"
+                                Clicked="OnLoginClicked"
+                                BackgroundColor="#4c51bf"
+                                TextColor="White"
+                                CornerRadius="10"
+                                HeightRequest="50"
+                                FontAttributes="Bold"/>
+                    </StackLayout>
+                </Frame>
+
+                <!-- Etiqueta de versión - Movida aquí para que sea visible siempre -->
                 <Label Grid.Row="2"
                        x:Name="VersionLabel"
                        Text="Versión: 1.0.0"
@@ -123,6 +101,32 @@
                        FontSize="12"
                        HorizontalOptions="Center"
                        Margin="0,0,0,15"/>
+            </Grid>
+        </ScrollView>
+
+        <!-- Loading Overlay -->
+        <Grid x:Name="LoadingOverlay" 
+              IsVisible="false"
+              BackgroundColor="#80000000">
+            <Frame BackgroundColor="White"
+                   CornerRadius="10"
+                   HeightRequest="100"
+                   WidthRequest="100"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center">
+                <StackLayout>
+                    <ActivityIndicator IsRunning="True"
+                                     Color="#E1251D"
+                                     HeightRequest="50"
+                                     WidthRequest="50"
+                                     HorizontalOptions="Center"
+                                     VerticalOptions="Center" />
+                    <Label Text="Cargando..."
+                           TextColor="#2C3E50"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center" />
+                </StackLayout>
+            </Frame>
         </Grid>
     </Grid>
 </ContentPage>

@@ -315,6 +315,10 @@
                                         <Label Text="{Binding DescripcionMotivo, StringFormat='Motivo: {0}'}"
                                                TextColor="#718096"
                                                FontSize="12"/>
+                                        <Label Text="{Binding Observaciones, StringFormat='Observaciones: {0}'}"
+                                               TextColor="#718096"
+                                               FontSize="12"
+                                               IsVisible="{Binding Observaciones, Converter={StaticResource StringNotEmptyConverter}}"/>
                                     </StackLayout>
 
                                     <!-- Alertas -->

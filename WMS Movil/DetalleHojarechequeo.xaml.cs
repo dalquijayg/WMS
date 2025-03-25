@@ -28,6 +28,7 @@ namespace WMS_Movil
             public string NombreCompleto { get; set; }
             public string DescripcionMotivo { get; set; }
             public int IdPreparacion { get; set; }
+            public string Observaciones { get; set; }
             // Propiedades para UI
             public bool EstaVerificado { get; set; }
             public Color ColorEstado => EstaVerificado ? Color.FromHex("#48BB78") : Color.FromHex("#E2E8F0");
@@ -886,6 +887,7 @@ namespace WMS_Movil
                             detallepedidostienda_bodega.Descripcion, 
                             detallepedidostienda_bodega.Cantidad as CantidadSolicitada, 
                             detallepedidostienda_bodega.CantConfirmada AS CantidadPreparada,
+                            detallepedidostienda_bodega.Observaciones,
                             usuarios.NombreCompleto, 
                             TiposMotivosPendiente.DescripcionMotivo,
                             detallepedidostienda_bodega.EstadoPreparacionproducto as IdPreparacion,
@@ -913,6 +915,8 @@ namespace WMS_Movil
                                     Descripcion = reader.GetString("Descripcion"),
                                     CantidadSolicitada = reader.GetInt32("CantidadSolicitada"),
                                     CantidadPreparada = reader.GetInt32("CantidadPreparada"),
+                                    Observaciones = !reader.IsDBNull(reader.GetOrdinal("Observaciones")) ?
+                                        reader.GetString("Observaciones") : string.Empty,
                                     NombreCompleto = reader.GetString("NombreCompleto"),
                                     DescripcionMotivo = reader.GetString("DescripcionMotivo"),
                                     IdPreparacion = reader.GetInt32("IdPreparacion"),

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -7,139 +8,101 @@ using Xamarin.Forms;
 
 namespace WMS_Movil
 {
+    public class AppVersion
+    {
+        public string Version { get; set; }
+        public string BuildNumber { get; set; }
+        public string ReleaseNotes { get; set; }
+        public string DownloadUrl { get; set; }
+    }
     public class UpdateChecker
     {
         // URL de la API de GitHub para obtener la última release
-        private const string GITHUB_API_URL = "https://api.github.com/repos/dalquijayg/WMS/releases/latest";
+        private const string VERSION_URL = "https://raw.githubusercontent.com/dalquijayg/WMS/refs/heads/master/version.json?token=GHSAT0AAAAAADAQW6I6ET4EAV6L2KVCQTBAZ7CYVTA";
 
-        public class GitHubRelease
-        {
-            [JsonProperty("tag_name")]
-            public string TagName { get; set; }
-
-            [JsonProperty("html_url")]
-            public string HtmlUrl { get; set; }
-
-            [JsonProperty("body")]
-            public string ReleaseNotes { get; set; }
-        }
-
-        public class AppVersion
-        {
-            public int VersionCode { get; set; }
-            public string VersionName { get; set; }
-        }
-
-        public static async Task<bool> CheckForUpdate()
+        public async Task<bool> CheckForUpdate()
         {
             try
             {
-                // Obtener información de la versión actual
-                AppVersion currentVersion = GetCurrentVersion();
+                // Obtener la versión actual de la aplicación
+                string currentVersion = VersionTracking.CurrentVersion;
+                string currentBuild = VersionTracking.CurrentBuild;
 
-                // Obtener información de la última versión en GitHub
-                GitHubRelease latestRelease = await GetLatestRelease();
+                // Obtener información de versión desde GitHub
+                var httpClient = new HttpClient();
+                var response = await httpClient.GetStringAsync(VERSION_URL);
 
-                if (latestRelease != null)
+                var remoteVersion = JsonConvert.DeserializeObject<AppVersion>(response);
+
+                // Comparar versiones (puedes usar lógica más compleja si es necesario)
+                bool updateAvailable = false;
+
+                // Primero compara por versión semántica
+                if (CompareVersions(remoteVersion.Version, currentVersion) > 0)
                 {
-                    // Convertir el tag_name (por ejemplo v1.2) a un versionCode (por ejemplo 102)
-                    string versionName = latestRelease.TagName.TrimStart('v');
-                    int latestVersionCode = ConvertVersionNameToCode(versionName);
-
-                    // Comparar versiones
-                    if (latestVersionCode > currentVersion.VersionCode)
-                    {
-                        // Mostrar diálogo de actualización
-                        bool update = await Application.Current.MainPage.DisplayAlert(
-                            "Actualización disponible",
-                            $"Hay una nueva versión disponible ({versionName}). Es recomendable actualizar para obtener las últimas funcionalidades y correcciones.\n\nNotas de la versión:\n{latestRelease.ReleaseNotes}",
-                            "Actualizar",
-                            "Más tarde");
-
-                        if (update)
-                        {
-                            // Abrir la URL de la release
-                            await Browser.OpenAsync(latestRelease.HtmlUrl, BrowserLaunchMode.SystemPreferred);
-                            return true;
-                        }
-                    }
+                    updateAvailable = true;
                 }
-            }
-            catch (HttpRequestException ex) when (ex.Message.Contains("404"))
-            {
-                // No hay releases todavía, simplemente continuar silenciosamente
-                Console.WriteLine("No releases found on GitHub yet.");
+                // Si las versiones son iguales, compara el número de compilación
+                else if (remoteVersion.Version == currentVersion &&
+                         CompareVersions(remoteVersion.BuildNumber, currentBuild) > 0)
+                {
+                    updateAvailable = true;
+                }
+
+                return updateAvailable;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al verificar actualizaciones: {ex.Message}");
+                Debug.WriteLine($"Error verificando actualizaciones: {ex.Message}");
+                return false;
             }
-
-            return false;
         }
 
-        private static async Task<GitHubRelease> GetLatestRelease()
+        private int CompareVersions(string version1, string version2)
+        {
+            var v1 = new Version(version1);
+            var v2 = new Version(version2);
+
+            return v1.CompareTo(v2);
+        }
+
+        public async Task<AppVersion> GetLatestVersion()
         {
             try
             {
-                using (var client = new HttpClient())
-                {
-                    // Agregar User-Agent header (requerido por GitHub API)
-                    client.DefaultRequestHeaders.Add("User-Agent", "WMS-App");
+                var httpClient = new HttpClient();
+                var response = await httpClient.GetStringAsync(VERSION_URL);
 
-                    var response = await client.GetStringAsync(GITHUB_API_URL);
-                    return JsonConvert.DeserializeObject<GitHubRelease>(response);
-                }
-            }
-            catch (HttpRequestException ex) when (ex.Message.Contains("404"))
-            {
-                // No hay releases todavía
-                Console.WriteLine("No releases found on GitHub yet.");
-                return null;
+                return JsonConvert.DeserializeObject<AppVersion>(response);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error getting latest release: {ex.Message}");
+                Debug.WriteLine($"Error obteniendo la última versión: {ex.Message}");
                 return null;
             }
         }
 
-        private static AppVersion GetCurrentVersion()
+        public async Task<bool> DownloadAndInstallUpdate(string downloadUrl)
         {
-            var version = VersionTracking.CurrentVersion;
-            var build = VersionTracking.CurrentBuild;
-
-            return new AppVersion
+            try
             {
-                VersionName = version,
-                VersionCode = ConvertVersionNameToCode(version)
-            };
-        }
-
-        
-
-        private static int ConvertVersionNameToCode(string versionName)
-        {
-            // Convertir "1.2.3" a 1023 (sin puntos, cada parte como 2 dígitos)
-            string[] parts = versionName.Split('.');
-            int versionCode = 0;
-
-            for (int i = 0; i < Math.Min(parts.Length, 3); i++)
-            {
-                if (int.TryParse(parts[i], out int part))
+                if (Device.RuntimePlatform == Device.Android)
                 {
-                    versionCode = versionCode * 100 + part;
+                    // Para Android, abrimos el navegador para descargar e instalar
+                    await Browser.OpenAsync(downloadUrl, BrowserLaunchMode.External);
+                    return true;
+                }
+                else
+                {
+                    // Para otras plataformas, puedes implementar lógicas específicas
+                    return false;
                 }
             }
-
-            // Asegurar que tenga al menos 3 componentes
-            while (parts.Length < 3)
+            catch (Exception ex)
             {
-                versionCode = versionCode * 100;
-                parts = new string[parts.Length + 1];
+                Debug.WriteLine($"Error descargando actualización: {ex.Message}");
+                return false;
             }
-
-            return versionCode;
         }
     }
 }
