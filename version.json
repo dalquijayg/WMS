@@ -1,6 +1,4 @@
 {
-  "version": "1.0.8",
-  "buildNumber": "6",
-  "releaseNotes": "Prueba actualizacion",
-  "downloadUrl": "https://github.com/dalquijayg/WMS/releases/download/v1.0.8/WMS.apk"
+  "latestVersion": "1.0.9",
+  "updateUrl": "https://github.com/dalquijayg/WMS/releases/latest/download/WMS.apk"
 }
