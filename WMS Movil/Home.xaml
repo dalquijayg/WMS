@@ -2,321 +2,455 @@
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="WMS_Movil.Home"
-             BackgroundColor="#f8f9fa">
-
-    <Shell.TitleView>
-        <Grid>
-            <Label Text="WMS Móvil" 
-                   TextColor="White" 
-                   FontSize="20" 
-                   FontAttributes="Bold"
-                   HorizontalOptions="Center" 
-                   VerticalOptions="Center"/>
-        </Grid>
-    </Shell.TitleView>
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="#F1F5F9">
 
     <Grid>
-        <!-- Reemplazamos el ScrollView con RefreshView -->
-        <RefreshView x:Name="RefreshView" 
-                    IsRefreshing="{Binding IsRefreshing}"
-                    RefreshColor="#4c51bf">
+        <RefreshView x:Name="RefreshView"
+                     IsRefreshing="{Binding IsRefreshing}"
+                     RefreshColor="#6366F1">
             <ScrollView>
-                <StackLayout Padding="20" Spacing="25">
-                    <!-- Header con nombre de usuario y la fecha actual -->
-                    <Frame BackgroundColor="#4c51bf" 
-                           CornerRadius="15" 
-                           Padding="20"
-                           HasShadow="True">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackLayout Grid.Column="0">
-                                <Label Text="¡Bienvenido!"
-                                       TextColor="White"
-                                       FontSize="22"
-                                       FontAttributes="Bold"/>
-                                <Label x:Name="UserNameLabel"
-                                       TextColor="White"
-                                       FontSize="18"/>
+                <StackLayout Spacing="0">
+
+                    <!-- ══════════════════════════════════════
+                         HEADER HERO
+                         ══════════════════════════════════════ -->
+                    <Grid HeightRequest="185">
+                        <!-- Fondo base -->
+                        <BoxView Color="#4C51BF"/>
+                        <!-- Círculo decorativo superior derecho -->
+                        <BoxView Color="#5558C8"
+                                 CornerRadius="100"
+                                 WidthRequest="200" HeightRequest="200"
+                                 HorizontalOptions="End" VerticalOptions="Start"
+                                 TranslationX="75" TranslationY="-75"/>
+                        <!-- Círculo decorativo inferior izquierdo -->
+                        <BoxView Color="#3D42B0"
+                                 CornerRadius="60"
+                                 WidthRequest="120" HeightRequest="120"
+                                 HorizontalOptions="Start" VerticalOptions="End"
+                                 TranslationX="-40" TranslationY="45"/>
+                        <!-- Círculo decorativo medio -->
+                        <BoxView Color="#4349BB"
+                                 CornerRadius="40"
+                                 WidthRequest="80" HeightRequest="80"
+                                 HorizontalOptions="End" VerticalOptions="End"
+                                 TranslationX="-60" TranslationY="20"/>
+
+                        <!-- Contenido del header -->
+                        <StackLayout Padding="22,30,22,20" VerticalOptions="Start" Spacing="0">
+                            <Label Text="¡Bienvenido de vuelta!"
+                                   TextColor="#C7D2FE"
+                                   FontSize="12"
+                                   CharacterSpacing="0.8"/>
+                            <Label x:Name="UserNameLabel"
+                                   TextColor="White"
+                                   FontSize="21"
+                                   FontAttributes="Bold"
+                                   Margin="0,4,0,10"/>
+                            <Frame BackgroundColor="#3B3FA0"
+                                   CornerRadius="20" Padding="10,5"
+                                   HasShadow="False" HorizontalOptions="Start">
                                 <Label x:Name="DateLabel"
-                                       TextColor="White"
-                                       FontSize="14"
-                                       Opacity="0.8"
-                                       Margin="0,5,0,0"/>
+                                       TextColor="#A5B4FC"
+                                       FontSize="11"/>
+                            </Frame>
+                        </StackLayout>
+                    </Grid>
+
+                    <!-- ══════════════════════════════════════
+                         BANNER: PEDIDO ASIGNADO SIN INICIAR
+                         ══════════════════════════════════════ -->
+                    <Frame x:Name="BannerPedidoAsignado"
+                           IsVisible="False"
+                           BackgroundColor="#FFF7ED"
+                           BorderColor="#FDBA74"
+                           CornerRadius="16"
+                           Padding="14,12"
+                           HasShadow="True"
+                           Margin="16,-30,16,0">
+                        <Frame.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnBannerPedidoAsignadoTapped"/>
+                        </Frame.GestureRecognizers>
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                            <Frame Grid.Column="0"
+                                   BackgroundColor="#FED7AA"
+                                   CornerRadius="10"
+                                   WidthRequest="40" HeightRequest="40"
+                                   Padding="0" HasShadow="False">
+                                <Label Text="⏰" FontSize="20"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center"/>
+                            </Frame>
+                            <StackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                <Label x:Name="BannerTituloLabel"
+                                       TextColor="#9A3412"
+                                       FontSize="13"
+                                       FontAttributes="Bold"
+                                       LineBreakMode="TailTruncation"/>
+                                <Label x:Name="BannerAsignoLabel"
+                                       TextColor="#C2410C"
+                                       FontSize="11"
+                                       LineBreakMode="TailTruncation"/>
                             </StackLayout>
-                            <Image Grid.Column="1"
-                                   Source="user_avatar.png"
-                                   HeightRequest="60"
-                                   WidthRequest="60"
+                            <Label x:Name="BannerTiempoLabel"
+                                   Grid.Column="2"
+                                   TextColor="#9A3412"
+                                   FontSize="16"
+                                   FontAttributes="Bold"
                                    VerticalOptions="Center"/>
                         </Grid>
                     </Frame>
 
-                    <!-- Sección de Preparación en Proceso con animación de entrada -->
-                    <Frame BackgroundColor="White" 
-                           CornerRadius="15" 
-                           Padding="15"
-                           Margin="0,0,0,15"
+                    <!-- ══════════════════════════════════════
+                         TARJETA FLOTANTE: PREPARACIÓN EN PROCESO
+                         ══════════════════════════════════════ -->
+                    <Frame x:Name="PrepFrame"
+                           BackgroundColor="White"
+                           CornerRadius="20"
+                           Padding="16,14"
                            HasShadow="True"
-                           x:Name="PrepFrame">
-                        <StackLayout>
-                            <StackLayout Orientation="Horizontal" Spacing="10">
-                                <Image Source="hojapendiente.png"
-                                       HeightRequest="30"/>
-                                <Label Text="Preparación en Proceso"
-                                       FontSize="18"
-                                       TextColor="#2d3748"
+                           Margin="16,-30,16,0">
+                        <StackLayout Spacing="10">
+
+                            <!-- Encabezado -->
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <Frame Grid.Column="0"
+                                       BackgroundColor="#EEF2FF"
+                                       CornerRadius="12"
+                                       WidthRequest="42" HeightRequest="42"
+                                       Padding="0" HasShadow="False">
+                                    <Image Source="hojapendiente.png"
+                                           HeightRequest="22" WidthRequest="22"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"/>
+                                </Frame>
+                                <Label Grid.Column="1"
+                                       Text="En Proceso"
+                                       FontSize="15" TextColor="#1E2235"
                                        FontAttributes="Bold"
-                                       VerticalOptions="Center"/>
-                                <Image Source="refresh.png"
-                                       HeightRequest="20"
-                                       WidthRequest="20"
-                                       HorizontalOptions="EndAndExpand"
+                                       VerticalOptions="Center"
+                                       Margin="10,0,0,0"/>
+                                <Image Grid.Column="2"
+                                       Source="refresh.png"
+                                       HeightRequest="20" WidthRequest="20"
                                        VerticalOptions="Center">
                                     <Image.GestureRecognizers>
                                         <TapGestureRecognizer Tapped="OnRefreshTapped"/>
                                     </Image.GestureRecognizers>
                                 </Image>
-                            </StackLayout>
+                            </Grid>
 
-                            <BoxView HeightRequest="1" 
-                                    Color="#e2e8f0" 
-                                    Margin="0,10"/>
+                            <BoxView HeightRequest="1" Color="#F1F5F9"/>
 
-                            <!-- Hojas Pendientes -->
-                            <StackLayout x:Name="HojasPendientesLayout" IsVisible="false">
+                            <!-- Carousel de hojas pendientes -->
+                            <StackLayout x:Name="HojasPendientesLayout" IsVisible="false" Spacing="6">
                                 <Label Text="{Binding ResumenPendientes}"
-                                       TextColor="#4a5568"
-                                       FontSize="15"/>
+                                       TextColor="#6B7280" FontSize="12"/>
 
-                                <!-- CarouselView para las hojas pendientes -->
                                 <CarouselView x:Name="HojasCarousel"
                                               ItemsSource="{Binding HojasPendientes}"
-                                              HeightRequest="150"
-                                              PeekAreaInsets="10"
+                                              HeightRequest="160"
+                                              PeekAreaInsets="8"
                                               Loop="False">
                                     <CarouselView.ItemTemplate>
                                         <DataTemplate>
-                                            <Frame BackgroundColor="#EDF2F7"
-                                                   CornerRadius="10"
-                                                   Padding="15"
-                                                   Margin="5,10"
-                                                   HasShadow="True">
+                                            <Frame BackgroundColor="#F8FAFF"
+                                                   CornerRadius="12"
+                                                   Padding="14,12"
+                                                   Margin="4,4"
+                                                   HasShadow="False">
                                                 <Frame.GestureRecognizers>
                                                     <TapGestureRecognizer Tapped="OnHojaTapped"/>
                                                 </Frame.GestureRecognizers>
-                                                <Grid RowSpacing="10">
-                                                    <Grid.RowDefinitions>
-                                                        <RowDefinition Height="Auto"/>
-                                                        <RowDefinition Height="Auto"/>
-                                                        <RowDefinition Height="Auto"/>
-                                                    </Grid.RowDefinitions>
-
-                                                    <StackLayout Grid.Row="0"
-                                                                 Orientation="Horizontal"
-                                                                 Spacing="15">
+                                                <StackLayout Spacing="6">
+                                                    <!-- Fila 1: Pedido + Hoja -->
+                                                    <StackLayout Orientation="Horizontal" Spacing="10">
                                                         <Label Text="{Binding IdPedido, StringFormat='Pedido #{0}'}"
-                                                               TextColor="#2d3748"
+                                                               TextColor="#1E2235"
                                                                FontAttributes="Bold"
-                                                               FontSize="16"/>
-                                                        <Label Text="{Binding NoHoja, StringFormat='Hoja {0}'}"
-                                                               TextColor="#4a5568"
-                                                               FontSize="16"/>
+                                                               FontSize="14"/>
+                                                        <Frame BackgroundColor="#EEF2FF"
+                                                               CornerRadius="6"
+                                                               Padding="7,2"
+                                                               HasShadow="False">
+                                                            <Label Text="{Binding NoHoja, StringFormat='Hoja {0}'}"
+                                                                   TextColor="#4C51BF"
+                                                                   FontSize="12"
+                                                                   FontAttributes="Bold"/>
+                                                        </Frame>
                                                     </StackLayout>
-
-                                                    <!-- Barra de progreso con estilo mejorado -->
-                                                    <Frame Grid.Row="1" 
-                                                           Padding="0" 
-                                                           CornerRadius="5" 
-                                                           BorderColor="Transparent"
-                                                           BackgroundColor="#e2e8f0"
-                                                           HasShadow="False">
+                                                    <!-- Fila 2: Nombre empresa -->
+                                                    <Label Text="{Binding NombreEmpresa}"
+                                                           TextColor="#374151"
+                                                           FontSize="11"
+                                                           LineBreakMode="TailTruncation"/>
+                                                    <!-- Fila 3: SKUs y Fardos -->
+                                                    <StackLayout Orientation="Horizontal" Spacing="8">
+                                                        <Frame BackgroundColor="#F0FDF4"
+                                                               CornerRadius="6" Padding="7,2"
+                                                               HasShadow="False">
+                                                            <Label TextColor="#065F46" FontSize="11">
+                                                                <Label.FormattedText>
+                                                                    <FormattedString>
+                                                                        <Span Text="{Binding TotalSkus}" FontAttributes="Bold"/>
+                                                                        <Span Text=" SKUs"/>
+                                                                    </FormattedString>
+                                                                </Label.FormattedText>
+                                                            </Label>
+                                                        </Frame>
+                                                        <Frame BackgroundColor="#FFF7ED"
+                                                               CornerRadius="6" Padding="7,2"
+                                                               HasShadow="False">
+                                                            <Label TextColor="#92400E" FontSize="11">
+                                                                <Label.FormattedText>
+                                                                    <FormattedString>
+                                                                        <Span Text="{Binding TotalFardos}" FontAttributes="Bold"/>
+                                                                        <Span Text=" Fardos"/>
+                                                                    </FormattedString>
+                                                                </Label.FormattedText>
+                                                            </Label>
+                                                        </Frame>
+                                                    </StackLayout>
+                                                    <!-- Barra de progreso -->
+                                                    <Frame Padding="0" CornerRadius="6"
+                                                           BackgroundColor="#E8ECF0"
+                                                           HasShadow="False" HeightRequest="22">
                                                         <Frame HorizontalOptions="StartAndExpand"
-                                                               Padding="0"
-                                                               CornerRadius="5"
+                                                               Padding="0" CornerRadius="6"
                                                                BackgroundColor="{Binding ColorProgreso}"
                                                                WidthRequest="{Binding ProgresoWidth}">
                                                             <Label Text="{Binding PorcentajeProgreso, StringFormat='{0:F0}%'}"
                                                                    HorizontalOptions="Center"
                                                                    TextColor="White"
-                                                                   FontSize="12"
-                                                                   FontAttributes="Bold"/>
+                                                                   FontSize="11"
+                                                                   FontAttributes="Bold"
+                                                                   VerticalOptions="Center"/>
                                                         </Frame>
                                                     </Frame>
-
-                                                    <!-- Pequeña ayuda visual para indicar que es clickeable -->
-                                                    <Label Grid.Row="2"
-                                                           Text="Toca para ver detalles"
-                                                           TextColor="#718096"
-                                                           FontSize="12"
-                                                           HorizontalOptions="End"
-                                                           Margin="0,5,0,0"/>
-                                                </Grid>
+                                                    <Label Text="Toca para continuar →"
+                                                           TextColor="#9CA3AF"
+                                                           FontSize="10"
+                                                           HorizontalOptions="End"/>
+                                                </StackLayout>
                                             </Frame>
                                         </DataTemplate>
                                     </CarouselView.ItemTemplate>
                                 </CarouselView>
 
-                                <!-- Indicador de posición con estilo mejorado -->
                                 <IndicatorView x:Name="IndicatorView"
-                                             IndicatorColor="LightGray"
-                                             SelectedIndicatorColor="#4c51bf"
-                                             HorizontalOptions="Center"
-                                             IndicatorSize="10"
-                                             Margin="0,10,0,0"/>
+                                               IndicatorColor="#D1D5DB"
+                                               SelectedIndicatorColor="#4C51BF"
+                                               HorizontalOptions="Center"
+                                               IndicatorSize="7"
+                                               Margin="0,2"/>
                             </StackLayout>
 
-                            <!-- Mensaje cuando no hay hojas pendientes -->
+                            <!-- Sin hojas pendientes -->
                             <Frame x:Name="NoHojasPendientesLabel"
                                    IsVisible="false"
-                                   BackgroundColor="#EDF2F7"
+                                   BackgroundColor="#F8FAFF"
                                    CornerRadius="10"
-                                   Padding="15"
+                                   Padding="14,12"
                                    HasShadow="False">
-                                <StackLayout Orientation="Horizontal" HorizontalOptions="Center">
-                                    <Image Source="info.png"
-                                           HeightRequest="20"
-                                           WidthRequest="20"
-                                           VerticalOptions="Center"
-                                           Margin="0,0,10,0"/>
-                                    <Label Text="No hay hojas pendientes de preparación"
-                                           TextColor="#718096"
-                                           FontSize="14"
+                                <StackLayout Orientation="Horizontal"
+                                             HorizontalOptions="Center"
+                                             Spacing="10">
+                                    <Label Text="✓"
+                                           TextColor="#10B981"
+                                           FontSize="20"
+                                           FontAttributes="Bold"
+                                           VerticalOptions="Center"/>
+                                    <Label Text="Sin hojas pendientes"
+                                           TextColor="#6B7280"
+                                           FontSize="13"
                                            VerticalOptions="Center"/>
                                 </StackLayout>
                             </Frame>
                         </StackLayout>
                     </Frame>
 
-                    <!-- Estadísticas con animación de entrada -->
-                    <Grid ColumnDefinitions="*,*" 
-                          RowSpacing="20" 
-                          ColumnSpacing="20"
-                          x:Name="StatsGrid">
-                        <!-- Pedidos Pendientes -->
-                        <Frame Grid.Column="0" 
-                               BackgroundColor="White"
-                               CornerRadius="15"
-                               HasShadow="True">
-                            <StackLayout Spacing="10">
-                                <Image Source="PP.png"
-                                       HeightRequest="50"
-                                       Aspect="AspectFit"/>
-                                <Label Text="Pedidos Pendientes"
-                                       HorizontalOptions="Center"
-                                       FontAttributes="Bold"
-                                       TextColor="#2d3748"/>
-                                <Label x:Name="PendientesLabel"
-                                       HorizontalOptions="Center"
-                                       FontSize="24"
-                                       TextColor="#4c51bf"
-                                       FontAttributes="Bold"/>
-                                <!-- Pequeña etiqueta que muestra la tendencia -->
-                                <Frame BackgroundColor="#EBF8FF" 
-                                       CornerRadius="5" 
-                                       Padding="8,3" 
-                                       HorizontalOptions="Center"
-                                       HasShadow="False">
-                                    <StackLayout Orientation="Horizontal">
-                                        <Image Source="trending_up.png" 
-                                               HeightRequest="12" 
-                                               WidthRequest="12"
+                    <!-- ══════════════════════════════════════
+                         ACCESOS RÁPIDOS
+                         ══════════════════════════════════════ -->
+                    <Label Text="ACCESOS RÁPIDOS"
+                           TextColor="#94A3B8"
+                           FontSize="10"
+                           FontAttributes="Bold"
+                           CharacterSpacing="2"
+                           Margin="22,20,0,4"/>
+
+                    <!-- Contenedor blanco con scroll horizontal -->
+                    <Frame x:Name="ButtonsStack"
+                           BackgroundColor="White"
+                           CornerRadius="20"
+                           Padding="0,14"
+                           HasShadow="True"
+                           Margin="16,0,16,8">
+                        <ScrollView Orientation="Horizontal"
+                                    HorizontalScrollBarVisibility="Never">
+                            <StackLayout Orientation="Horizontal"
+                                         Padding="16,0" Spacing="6">
+
+                                <!-- Gestión de Ubicaciones -->
+                                <StackLayout x:Name="UbicacionesFrame"
+                                             IsVisible="False"
+                                             Spacing="8" WidthRequest="74">
+                                    <StackLayout.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnUbicacionesClicked"/>
+                                    </StackLayout.GestureRecognizers>
+                                    <Frame BackgroundColor="#A7F3D0"
+                                           CornerRadius="30"
+                                           WidthRequest="60" HeightRequest="60"
+                                           Padding="0" HasShadow="False"
+                                           HorizontalOptions="Center">
+                                        <Label Text="📍" FontSize="28"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center"/>
+                                    </Frame>
+                                    <Label Text="Gestión&#10;Ubicaciones"
+                                           TextColor="#1F2937"
+                                           FontSize="10"
+                                           FontAttributes="Bold"
+                                           HorizontalTextAlignment="Center"
+                                           HorizontalOptions="Center"/>
+                                </StackLayout>
+
+                                <!-- Mis Pedidos -->
+                                <StackLayout x:Name="MisPedidosFrame"
+                                             IsVisible="False"
+                                             Spacing="8" WidthRequest="74">
+                                    <StackLayout.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnMisPedidosClicked"/>
+                                    </StackLayout.GestureRecognizers>
+                                    <Frame BackgroundColor="#FDE68A"
+                                           CornerRadius="30"
+                                           WidthRequest="60" HeightRequest="60"
+                                           Padding="0" HasShadow="False"
+                                           HorizontalOptions="Center">
+                                        <Label Text="📦" FontSize="28"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center"/>
+                                    </Frame>
+                                    <Label Text="Mis&#10;Pedidos"
+                                           TextColor="#1F2937"
+                                           FontSize="10"
+                                           FontAttributes="Bold"
+                                           HorizontalTextAlignment="Center"
+                                           HorizontalOptions="Center"/>
+                                </StackLayout>
+
+                                <!-- Mis Chequeos -->
+                                <StackLayout x:Name="MisChequeosFrame"
+                                             IsVisible="False"
+                                             Spacing="8" WidthRequest="74">
+                                    <StackLayout.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnMisChequeosClicked"/>
+                                    </StackLayout.GestureRecognizers>
+                                    <Frame BackgroundColor="#BAE6FD"
+                                           CornerRadius="30"
+                                           WidthRequest="60" HeightRequest="60"
+                                           Padding="0" HasShadow="False"
+                                           HorizontalOptions="Center">
+                                        <Label Text="✅" FontSize="28"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center"/>
+                                    </Frame>
+                                    <Label Text="Rechequeo"
+                                           TextColor="#1F2937"
+                                           FontSize="10"
+                                           FontAttributes="Bold"
+                                           HorizontalTextAlignment="Center"
+                                           HorizontalOptions="Center"/>
+                                </StackLayout>
+
+                                <!-- Embalaje -->
+                                <StackLayout x:Name="EmbajajeFrame"
+                                             IsVisible="False"
+                                             Spacing="8" WidthRequest="74">
+                                    <StackLayout.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnEmbajajeClicked"/>
+                                    </StackLayout.GestureRecognizers>
+                                    <Frame BackgroundColor="#FCD34D"
+                                           CornerRadius="30"
+                                           WidthRequest="60" HeightRequest="60"
+                                           Padding="10" HasShadow="False"
+                                           HorizontalOptions="Center">
+                                        <Image Source="tarima.png"
+                                               HorizontalOptions="Center"
                                                VerticalOptions="Center"/>
-                                    </StackLayout>
-                                </Frame>
+                                    </Frame>
+                                    <Label Text="Embalaje"
+                                           TextColor="#1F2937"
+                                           FontSize="10"
+                                           FontAttributes="Bold"
+                                           HorizontalTextAlignment="Center"
+                                           HorizontalOptions="Center"/>
+                                </StackLayout>
+
                             </StackLayout>
+                        </ScrollView>
+                    </Frame>
+
+                    <!-- Placeholders para compatibilidad CS -->
+                    <Frame x:Name="StatsGrid" IsVisible="False" HeightRequest="0"
+                           Padding="0" HasShadow="False" BackgroundColor="Transparent"/>
+                    <StackLayout IsVisible="False" HeightRequest="0">
+                        <Frame x:Name="dummy_old" IsVisible="False" HasShadow="False" Padding="0">
+                            <Label Text=" " FontSize="1" TextColor="Transparent"/>
                         </Frame>
-
-                        <!-- Pedidos en Rechequeo -->
-                        <Frame Grid.Column="1"
-                               BackgroundColor="White"
-                               CornerRadius="15"
-                               HasShadow="True">
-                            <StackLayout Spacing="10">
-                                <Image Source="Rechequeo.png"
-                                       HeightRequest="50"
-                                       Aspect="AspectFit"/>
-                                <Label Text="En Rechequeo"
-                                       HorizontalOptions="Center"
-                                       FontAttributes="Bold"
-                                       TextColor="#2d3748"/>
-                                <Label x:Name="RechequeoLabel"
-                                       HorizontalOptions="Center"
-                                       FontSize="24"
-                                       TextColor="#4c51bf"
-                                       FontAttributes="Bold"/>
-                                <!-- Pequeña etiqueta que muestra la tendencia -->
-                                <Frame BackgroundColor="#FEEBC8" 
-                                       CornerRadius="5" 
-                                       Padding="8,3" 
-                                       HorizontalOptions="Center"
-                                       HasShadow="False">
-                                    <StackLayout Orientation="Horizontal">
-                                        <Image Source="trending_down.png" 
-                                               HeightRequest="12" 
-                                               WidthRequest="12"
-                                               VerticalOptions="Center"/>
-                                    </StackLayout>
-                                </Frame>
-                            </StackLayout>
-                        </Frame>
-                    </Grid>
-
-                    <!-- Botones de acción con animación de entrada -->
-                    <StackLayout Spacing="15" x:Name="ButtonsStack">
-                        <Button x:Name="BtnPendientes"
-            Text="Ver Pedidos Pendientes"
-            BackgroundColor="#4c51bf"
-            TextColor="White"
-            CornerRadius="10"
-            HeightRequest="50"
-            Clicked="OnPendientesClicked"
-            FontAttributes="Bold"/>
-
-                        <Button x:Name="BtnRechequeo"
-            Text="Ver Pedidos en Rechequeo"
-            BackgroundColor="#667eea"
-            TextColor="White"
-            CornerRadius="10"
-            HeightRequest="50"
-            Clicked="OnRechequeoClicked"
-            FontAttributes="Bold"/>
-
-                        <!-- Botón de cerrar sesión -->
-                        <Button Text="Cerrar Sesión"
-            BackgroundColor="Transparent"
-            TextColor="#4a5568"
-            BorderColor="#CBD5E0"
-            BorderWidth="1"
-            CornerRadius="10"
-            HeightRequest="50"
-            Clicked="OnLogoutClicked"
-            Margin="0,20,0,0"/>
                     </StackLayout>
+
+                    <!-- ══════════════════════════════════════
+                         CERRAR SESIÓN
+                         ══════════════════════════════════════ -->
+                    <StackLayout Padding="16,20,16,30" Spacing="0">
+                        <BoxView HeightRequest="1" Color="#E2E8F0" Margin="0,0,0,14"/>
+                        <Button Text="Cerrar Sesión"
+                                BackgroundColor="White"
+                                TextColor="#EF4444"
+                                BorderColor="#FECACA"
+                                BorderWidth="1.5"
+                                CornerRadius="14"
+                                HeightRequest="50"
+                                FontSize="13"
+                                FontAttributes="Bold"
+                                Clicked="OnLogoutClicked"/>
+                    </StackLayout>
+
                 </StackLayout>
             </ScrollView>
         </RefreshView>
 
-        <Grid x:Name="LoadingOverlay" 
+        <!-- ══════════════════════════════════════
+             OVERLAY DE CARGA
+             ══════════════════════════════════════ -->
+        <Grid x:Name="LoadingOverlay"
               IsVisible="false"
               BackgroundColor="#80000000">
             <Frame BackgroundColor="White"
-                   CornerRadius="10"
-                   HeightRequest="100"
-                   WidthRequest="100"
+                   CornerRadius="20"
+                   HeightRequest="104"
+                   WidthRequest="104"
                    HorizontalOptions="Center"
-                   VerticalOptions="Center">
-                <StackLayout>
+                   VerticalOptions="Center"
+                   Padding="0"
+                   HasShadow="True">
+                <StackLayout VerticalOptions="Center"
+                             HorizontalOptions="Center"
+                             Spacing="8">
                     <ActivityIndicator IsRunning="True"
-                                     Color="#4c51bf"
-                                     HeightRequest="50"
-                                     WidthRequest="50"
-                                     HorizontalOptions="Center"
-                                     VerticalOptions="Center" />
+                                       Color="#4C51BF"
+                                       HeightRequest="38"
+                                       WidthRequest="38"
+                                       HorizontalOptions="Center"/>
                     <Label Text="Cargando..."
-                           TextColor="#2C3E50"
-                           HorizontalOptions="Center"
-                           VerticalOptions="Center" />
+                           TextColor="#6B7280"
+                           FontSize="11"
+                           HorizontalOptions="Center"/>
                 </StackLayout>
             </Frame>
         </Grid>
+
     </Grid>
 </ContentPage>

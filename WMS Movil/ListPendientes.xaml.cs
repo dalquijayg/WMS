@@ -1,8 +1,8 @@
 ﻿using MySqlConnector;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Xamarin.Essentials;
 using Xamarin.Forms;
@@ -13,82 +13,144 @@ namespace WMS_Movil
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class ListPendientes : ContentPage
     {
-        private List<PedidoPendiente> todosLosPedidos;
+        private List<HojaAsignada> todasLasHojas;
+        private int idUsuario;
+
         public ListPendientes()
         {
             InitializeComponent();
-            CargarPedidos();
+            idUsuario = Preferences.Get("UserId", 0);
+            CargarNombreUsuario();
+            CargarHojasAsignadas();
         }
+
         protected override void OnAppearing()
         {
             base.OnAppearing();
-            CargarPedidos();
+            CargarHojasAsignadas();
         }
 
-        private async void CargarPedidos()
+        private void CargarNombreUsuario()
+        {
+            string nombreUsuario = Preferences.Get("UserName", "Usuario");
+            NombreUsuarioLabel.Text = $"👤 {nombreUsuario}";
+        }
+
+        private async void CargarHojasAsignadas()
         {
             try
             {
+                LoadingOverlay.IsVisible = true;
+                EmptyState.IsVisible = false;
+
                 string connectionString = $"Server={Preferences.Get("ip_address", "")};Database={Preferences.Get("selected_database", "")};User ID={Preferences.Get("username", "")};Password={Preferences.Get("password", "")};";
+
                 using (var connection = new MySqlConnection(connectionString))
                 {
                     connection.Open();
+
+                    // Query para obtener las hojas asignadas al usuario
                     string query = @"SELECT
-                                        pb.IdPedidos, 
-                                        pb.Fecha, 
-                                        CONCAT(pb.NombreEmpresa, ' - ', pb.Departamento) as NombreEmpresa, 
-                                        pb.TotalCantidad,
-                                        COUNT(dpb.Id) AS CantidadLineas
+                                        PreparacionPedidos.Idpreparo,
+                                        PreparacionPedidos.IdPedido,
+                                        PreparacionPedidos.NoHoja,
+                                        PreparacionPedidos.Sucursal,
+                                        PreparacionPedidos.TotalSkus,
+                                        PreparacionPedidos.TotalFardos,
+                                        PreparacionPedidos.FechaHoraInicio,
+                                        PreparacionPedidos.FechaHorafinalizo,
+                                        COUNT(CASE WHEN detallepedidostienda_bodega.EstadoPreparacionproducto IN (1,2) THEN 1 END) as ProductosPreparados
                                     FROM
-                                        pedidostienda_bodega pb
-                                    INNER JOIN
-                                        detallepedidostienda_bodega dpb ON pb.IdPedidos = dpb.IdConsolidado
+                                        PreparacionPedidos
+                                        LEFT JOIN detallepedidostienda_bodega 
+                                            ON PreparacionPedidos.IdPedido = detallepedidostienda_bodega.IdConsolidado 
+                                            AND PreparacionPedidos.NoHoja = detallepedidostienda_bodega.NoHoja
                                     WHERE
-                                        pb.Estado = 4
+                                        PreparacionPedidos.IdUsuario = @idUsuario
+                                        AND PreparacionPedidos.FechaHorafinalizo IS NULL
                                     GROUP BY
-                                        pb.IdPedidos, pb.Fecha, pb.NombreEmpresa, pb.Departamento, pb.TotalCantidad";
+                                        PreparacionPedidos.Idpreparo,
+                                        PreparacionPedidos.IdPedido,
+                                        PreparacionPedidos.NoHoja,
+                                        PreparacionPedidos.Sucursal,
+                                        PreparacionPedidos.TotalSkus,
+                                        PreparacionPedidos.TotalFardos,
+                                        PreparacionPedidos.FechaHoraInicio,
+                                        PreparacionPedidos.FechaHorafinalizo
+                                    ORDER BY
+                                        PreparacionPedidos.FechaHoraInicio DESC,
+                                        PreparacionPedidos.IdPedido ASC,
+                                        PreparacionPedidos.NoHoja ASC";
 
                     using (var command = new MySqlCommand(query, connection))
-                    using (var reader = command.ExecuteReader())
                     {
-                        var pedidos = new List<PedidoPendiente>();
-                        while (reader.Read())
+                        command.Parameters.AddWithValue("@idUsuario", idUsuario);
+
+                        using (var reader = command.ExecuteReader())
                         {
-                            pedidos.Add(new PedidoPendiente
+                            var hojas = new List<HojaAsignada>();
+
+                            while (reader.Read())
                             {
-                                IdPedidos = reader.GetInt32("IdPedidos"),
-                                Fecha = reader.GetDateTime("Fecha"),
-                                NombreEmpresa = reader.GetString("NombreEmpresa"),
-                                TotalCantidad = reader.GetDouble("TotalCantidad"),
-                                CantidadLineas = reader.GetInt32("CantidadLineas")
-                            });
+                                var hoja = new HojaAsignada
+                                {
+                                    IdPreparacion = reader.GetInt32("Idpreparo"),
+                                    IdPedido = reader.GetInt32("IdPedido"),
+                                    NoHoja = reader.GetInt32("NoHoja"),
+                                    Sucursal = reader.GetString("Sucursal"),
+                                    TotalSkus = reader.GetInt32("TotalSkus"),
+                                    TotalFardos = reader.GetDouble("TotalFardos"),
+                                    FechaHoraInicio = reader.IsDBNull(reader.GetOrdinal("FechaHoraInicio"))
+                                        ? (DateTime?)null
+                                        : reader.GetDateTime("FechaHoraInicio"),
+                                    FechaHorafinalizo = reader.IsDBNull(reader.GetOrdinal("FechaHorafinalizo"))
+                                        ? (DateTime?)null
+                                        : reader.GetDateTime("FechaHorafinalizo"),
+                                    ProductosPreparados = reader.GetInt32("ProductosPreparados")
+                                };
+
+                                hojas.Add(hoja);
+                            }
+
+                            todasLasHojas = hojas;
+                            HojasCollection.ItemsSource = hojas;
+
+                            // Mostrar mensaje si no hay hojas
+                            EmptyState.IsVisible = hojas.Count == 0;
                         }
-                        todosLosPedidos = pedidos;
-                        PedidosCollection.ItemsSource = pedidos;
                     }
                 }
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", "Error al cargar pedidos: " + ex.Message, "OK");
+                await DisplayAlert("Error", "Error al cargar hojas asignadas: " + ex.Message, "OK");
+            }
+            finally
+            {
+                LoadingOverlay.IsVisible = false;
             }
         }
 
         private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
         {
+            if (todasLasHojas == null) return;
+
             if (string.IsNullOrWhiteSpace(e.NewTextValue))
-                PedidosCollection.ItemsSource = todosLosPedidos;
+            {
+                HojasCollection.ItemsSource = todasLasHojas;
+            }
             else
             {
-                var filtrado = todosLosPedidos.Where(p =>
-                    p.IdPedidos.ToString().Contains(e.NewTextValue));
-                PedidosCollection.ItemsSource = filtrado;
+                var filtrado = todasLasHojas.Where(h =>
+                    h.IdPedido.ToString().Contains(e.NewTextValue) ||
+                    h.Sucursal.ToLower().Contains(e.NewTextValue.ToLower()));
+                HojasCollection.ItemsSource = filtrado;
             }
         }
 
-        private async void OnPedidoSelected(object sender, SelectionChangedEventArgs e)
+        private async void OnHojaSelected(object sender, SelectionChangedEventArgs e)
         {
-            if (e.CurrentSelection.FirstOrDefault() is PedidoPendiente pedido)
+            if (e.CurrentSelection.FirstOrDefault() is HojaAsignada hoja)
             {
                 try
                 {
@@ -97,130 +159,101 @@ namespace WMS_Movil
                         LoadingOverlay.IsVisible = true;
                     });
 
-                    // Esperar un momento para asegurar que el LoadingOverlay sea visible
                     await Task.Delay(100);
 
-                    string connectionString = $"Server={Preferences.Get("ip_address", "")};Database={Preferences.Get("selected_database", "")};User ID={Preferences.Get("username", "")};Password={Preferences.Get("password", "")};Allow User Variables=True;"; 
-                    using (var connection = new MySqlConnection(connectionString))
+                    // Si no ha iniciado, registrar el inicio
+                    if (hoja.FechaHoraInicio == null)
                     {
-                        connection.Open();
+                        string connectionString = $"Server={Preferences.Get("ip_address", "")};Database={Preferences.Get("selected_database", "")};User ID={Preferences.Get("username", "")};Password={Preferences.Get("password", "")};";
 
-                        // Verificar si está paginado
-                        using (var command = new MySqlCommand("SELECT Paginado FROM pedidostienda_bodega WHERE IdPedidos = @idPedido", connection))
+                        using (var connection = new MySqlConnection(connectionString))
                         {
-                            command.Parameters.AddWithValue("@idPedido", pedido.IdPedidos);
-                            var paginado = Convert.ToInt32(command.ExecuteScalar());
+                            connection.Open();
 
-                            if (paginado == 0)
+                            using (var command = new MySqlCommand(@"UPDATE PreparacionPedidos 
+                                                           SET FechaHoraInicio = NOW() 
+                                                           WHERE Idpreparo = @idPreparacion", connection))
                             {
-                                // Ejecutar la actualización para paginado
-                                using (var updateCommand = new MySqlCommand(@"
-                            UPDATE detallepedidostienda_bodega d
-                            INNER JOIN (
-                                SELECT 
-                                    PedidosNumerados.*,
-                                    CEILING(RowNum / 25.0) AS NumeroHoja
-                                FROM (
-                                    SELECT 
-                                        PedidosDetallados.*,
-                                        @row_number := IF(@current_pedido = PedidosDetallados.IdPedidos, @row_number + 1, 1) AS RowNum,
-                                        @current_pedido := PedidosDetallados.IdPedidos
-                                    FROM (
-                                        SELECT
-                                            pedidostienda_bodega.IdPedidos, 
-                                            detallepedidostienda_bodega.UPC, 
-                                            detallepedidostienda_bodega.Descripcion, 
-                                            detallepedidostienda_bodega.Cantidad,
-                                            detallepedidostienda_bodega.Id AS DetalleId,
-                                            ubicacionesbodega.Id, 
-                                            ubicacionesbodega.Rack, 
-                                            ubicacionesbodega.Nivel, 
-                                            ubicacionesbodega.Descripcion AS Ubicacion,
-                                            ubicacionesbodega.Id as IdUbicacionBodega
-                                        FROM
-                                            pedidostienda_bodega
-                                            INNER JOIN detallepedidostienda_bodega ON pedidostienda_bodega.IdPedidos = detallepedidostienda_bodega.IdConsolidado
-                                            INNER JOIN productospaquetes ON detallepedidostienda_bodega.UPC = productospaquetes.UPCPaquete
-                                            INNER JOIN productos ON productospaquetes.Upc = productos.Upc
-                                            INNER JOIN ubicacionesbodega ON productos.IdUbicacionBodega = ubicacionesbodega.Id
-                                        WHERE
-                                            pedidostienda_bodega.IdPedidos = @idPedido
-                                        ORDER BY 
-                                            Nivel ASC,
-                                            Id ASC
-                                    ) AS PedidosDetallados
-                                    CROSS JOIN (SELECT @current_pedido := 0, @row_number := 0) AS vars
-                                ) AS PedidosNumerados
-                            ) AS t ON d.Id = t.DetalleId
-                            SET 
-                                d.NoHoja = t.NumeroHoja,
-                                d.IdUbicacionBodega = t.IdUbicacionBodega
-                            WHERE d.IdConsolidado = @idPedido", connection))
-                                {
-                                    updateCommand.Parameters.AddWithValue("@idPedido", pedido.IdPedidos);
-                                    updateCommand.ExecuteNonQuery();
-                                }
-
-                                // Insertar en HistorialPreparacionPedidos
-                                using (var insertCommand = new MySqlCommand(@"
-                            INSERT INTO HistorialPreparacionPedidos (IdPedido, NoHoja, Sucursal, TotalSKUs, TotalFardos)
-                                    SELECT 
-                                        d.IdConsolidado,
-                                        d.NoHoja,
-                                        p.NombreEmpresa,
-                                        COUNT(*) AS TotalSKUs,
-                                        SUM(d.Cantidad) AS TotalFardos
-                                    FROM detallepedidostienda_bodega d
-                                    INNER JOIN pedidostienda_bodega p ON p.IdPedidos = d.IdConsolidado
-                                    WHERE d.IdConsolidado = @idPedido
-                                    GROUP BY d.IdConsolidado, d.NoHoja, p.NombreEmpresa", connection))
-                                {
-                                    insertCommand.Parameters.AddWithValue("@idPedido", pedido.IdPedidos);
-                                    insertCommand.ExecuteNonQuery();
-                                }
-
-                                // Actualizar pedidostienda_bodega
-                                using (var finalUpdateCommand = new MySqlCommand(@"
-                                    UPDATE pedidostienda_bodega p
-                                    SET p.Paginado = 1,
-                                        p.Nohojas = (
-                                            SELECT MAX(NoHoja)
-                                            FROM detallepedidostienda_bodega
-                                            WHERE IdConsolidado = @idPedido
-                                        )
-                                    WHERE p.IdPedidos = @idPedido", connection))
-                                {
-                                    finalUpdateCommand.Parameters.AddWithValue("@idPedido", pedido.IdPedidos);
-                                    finalUpdateCommand.ExecuteNonQuery();
-                                }
+                                command.Parameters.AddWithValue("@idPreparacion", hoja.IdPreparacion);
+                                command.ExecuteNonQuery();
                             }
                         }
                     }
 
-                    // Navegar a DetalleHojaUbicaciones
-                    await Navigation.PushAsync(new DetalleHojaunbicaciones(pedido.IdPedidos, null));
+                    // CAMBIO: Navegar directo a DetallePedidoPendientes sin IdUbicacion
+                    await Navigation.PushAsync(new DetallePedidoPendientes(hoja.IdPedido, hoja.NoHoja));
                 }
                 catch (Exception ex)
                 {
-                    await DisplayAlert("Error", "Error al procesar el pedido: " + ex.Message, "OK");
+                    await DisplayAlert("Error", "Error al abrir la hoja: " + ex.Message, "OK");
                 }
                 finally
                 {
-                    PedidosCollection.SelectedItem = null;
-                }
-                Device.BeginInvokeOnMainThread(() =>
-                {
+                    HojasCollection.SelectedItem = null;
                     LoadingOverlay.IsVisible = false;
-                });
+                }
             }
         }
     }
-    public class PedidoPendiente
+
+    public class HojaAsignada
     {
-        public int IdPedidos { get; set; }
-        public DateTime Fecha { get; set; }
-        public string NombreEmpresa { get; set; }
-        public double TotalCantidad { get; set; }
-        public int CantidadLineas { get; set; }
+        public int IdPreparacion { get; set; }
+        public int IdPedido { get; set; }
+        public int NoHoja { get; set; }
+        public string Sucursal { get; set; }
+        public int TotalSkus { get; set; }
+        public double TotalFardos { get; set; }
+        public DateTime? FechaHoraInicio { get; set; }
+        public DateTime? FechaHorafinalizo { get; set; }
+        public int ProductosPreparados { get; set; }
+
+        // Propiedades calculadas para el UI
+        public string TituloHoja => $"Pedido #{IdPedido} - Hoja {NoHoja}";
+
+        public string EstadoTexto
+        {
+            get
+            {
+                if (FechaHoraInicio == null) return "Pendiente";
+                if (FechaHorafinalizo != null) return "Finalizado";
+                return "En Proceso";
+            }
+        }
+
+        public Color EstadoColor
+        {
+            get
+            {
+                if (FechaHoraInicio == null) return Color.FromHex("#6B7280");
+                if (FechaHorafinalizo != null) return Color.FromHex("#10B981");
+                return Color.FromHex("#F59E0B");
+            }
+        }
+
+        public string ProgresoTexto => $"{ProductosPreparados}/{TotalSkus} SKUs";
+
+        public int PorcentajeProgreso => TotalSkus > 0 ? (int)((ProductosPreparados * 100.0) / TotalSkus) : 0;
+
+        public double ProgresoWidth
+        {
+            get
+            {
+                // Calcula el ancho proporcional para la barra de progreso
+                // Asumiendo un ancho máximo de 300 (ajusta según tu UI)
+                double anchoMaximo = 300;
+                return (PorcentajeProgreso / 100.0) * anchoMaximo;
+            }
+        }
+
+        public Color ProgresoColor
+        {
+            get
+            {
+                if (PorcentajeProgreso == 100) return Color.FromHex("#10B981");
+                if (PorcentajeProgreso > 0) return Color.FromHex("#F59E0B");
+                return Color.FromHex("#6B7280");
+            }
+        }
     }
 }

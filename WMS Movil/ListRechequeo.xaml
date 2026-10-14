@@ -1,121 +1,175 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="WMS_Movil.ListRechequeo">
+             x:Class="WMS_Movil.ListRechequeo"
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="#F1F5F9">
+
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+        <ScrollView>
+            <StackLayout Spacing="0">
 
-        <!-- Contenido Principal -->
-        <StackLayout Padding="15" Grid.Row="0">
-            <!-- Buscador -->
-            <Frame BackgroundColor="White" 
-               CornerRadius="10" 
-               Padding="5" 
-               HeightRequest="50"
-               Margin="0,0,0,15">
-                <Grid ColumnDefinitions="Auto,*">
-                    <Image Source="buscar.png" 
-                       HeightRequest="20" 
-                       Grid.Column="0"
-                       Margin="10,0"/>
-                    <Entry x:Name="SearchEntry"
-                       Placeholder="Buscar por ID de Pedido"
-                       PlaceholderColor="#a0aec0"
-                       TextColor="Black"
-                       Grid.Column="1"
-                       Margin="0,-10,0,-10"
-                       VerticalOptions="Center"
-                       TextChanged="OnSearchTextChanged"/>
-                </Grid>
-            </Frame>
+                <!-- ══════════════════════════════════════
+                     HEADER HERO
+                     ══════════════════════════════════════ -->
+                <Grid HeightRequest="150">
+                    <!-- Fondo base -->
+                    <BoxView Color="#4C51BF"/>
+                    <!-- Círculo decorativo superior derecho -->
+                    <BoxView Color="#5558C8"
+                             CornerRadius="100"
+                             WidthRequest="200" HeightRequest="200"
+                             HorizontalOptions="End" VerticalOptions="Start"
+                             TranslationX="75" TranslationY="-75"/>
+                    <!-- Círculo decorativo inferior izquierdo -->
+                    <BoxView Color="#3D42B0"
+                             CornerRadius="60"
+                             WidthRequest="120" HeightRequest="120"
+                             HorizontalOptions="Start" VerticalOptions="End"
+                             TranslationX="-40" TranslationY="45"/>
 
-            <!-- Lista de pedidos -->
-            <CollectionView x:Name="PedidosCollection"
-                       SelectionMode="Single"
-                       SelectionChanged="OnPedidoSelected">
-                <CollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <Frame Margin="0,0,0,10"
-                           CornerRadius="10"
-                           BackgroundColor="White"
-                           HasShadow="True">
-                            <Grid RowSpacing="8" Padding="5">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-
-                                <!-- ID y Fecha -->
-                                <StackLayout Grid.Row="0" Grid.Column="0">
-                                    <Label Text="{Binding IdPedidos, StringFormat='Pedido #{0}'}"
-                                       TextColor="#2d3748"
-                                       FontAttributes="Bold"
-                                       FontSize="16"/>
-                                    <Label Text="{Binding Fecha, StringFormat='{0:dd/MM/yyyy HH:mm}'}"
-                                       TextColor="#718096"
-                                       FontSize="14"/>
-                                </StackLayout>
-
-                                <!-- Nombre Empresa -->
-                                <StackLayout Grid.Row="1" Grid.Column="0" 
-                                       Orientation="Horizontal" 
-                                       Spacing="10">
-                                    <Image Source="tienda.png" 
-                                       HeightRequest="20"/>
-                                    <Label Text="{Binding NombreEmpresa}"
-                                       TextColor="#4a5568"
-                                       FontSize="15"/>
-                                </StackLayout>
-
-                                <!-- Cantidades -->
-                                <StackLayout Grid.Row="2" Grid.Column="0" 
-                                       Orientation="Horizontal" 
-                                       Spacing="15">
-                                    <Label Text="{Binding TotalCantidad, StringFormat='Total: {0}'}"
-                                       TextColor="#4c51bf"
-                                       FontAttributes="Bold"/>
-                                    <Label Text="{Binding CantidadLineas, StringFormat='Líneas: {0}'}"
-                                       TextColor="#4c51bf"
-                                       FontAttributes="Bold"/>
-                                </StackLayout>
-                            </Grid>
+                    <!-- Contenido del header -->
+                    <Grid ColumnDefinitions="Auto,*,Auto"
+                          Padding="16,0"
+                          VerticalOptions="Center"
+                          Margin="0,20,0,0">
+                        <Frame Grid.Column="0"
+                               BackgroundColor="#3B3FA0"
+                               CornerRadius="12"
+                               WidthRequest="38" HeightRequest="38"
+                               Padding="0" HasShadow="False">
+                            <Label Text="←" TextColor="White" FontSize="18"
+                                   HorizontalTextAlignment="Center"
+                                   VerticalTextAlignment="Center">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnBackClicked"/>
+                                </Label.GestureRecognizers>
+                            </Label>
                         </Frame>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-        </StackLayout>
 
-        <!-- Overlay de Carga -->
-        <Grid x:Name="LoadingOverlay" 
-          IsVisible="False"
-          BackgroundColor="#80000000">
+                        <StackLayout Grid.Column="1"
+                                     HorizontalOptions="Center"
+                                     VerticalOptions="Center"
+                                     Spacing="2">
+                            <Label Text="Rechequeo"
+                                   TextColor="White"
+                                   FontSize="18"
+                                   FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center"/>
+                            <Label Text="Escanea la tarima para verificarla"
+                                   TextColor="#C7D2FE"
+                                   FontSize="11"
+                                   HorizontalTextAlignment="Center"/>
+                        </StackLayout>
+
+                        <Frame Grid.Column="2"
+                               BackgroundColor="#3B3FA0"
+                               CornerRadius="12"
+                               WidthRequest="38" HeightRequest="38"
+                               Padding="7" HasShadow="False">
+                            <Label Text="✅" FontSize="16"
+                                   HorizontalTextAlignment="Center"
+                                   VerticalTextAlignment="Center"/>
+                        </Frame>
+                    </Grid>
+                </Grid>
+
+                <!-- ══════════════════════════════════════
+                     TARJETA: ESCANEAR TARIMA
+                     El código de barras de la tarima es su IdTarima.
+                     ══════════════════════════════════════ -->
+                <Frame BackgroundColor="White"
+                       CornerRadius="20"
+                       Padding="18,16"
+                       HasShadow="True"
+                       Margin="16,-30,16,0">
+                    <StackLayout Spacing="14">
+
+                        <StackLayout Orientation="Horizontal" Spacing="10">
+                            <Frame BackgroundColor="#EEF2FF"
+                                   CornerRadius="12"
+                                   WidthRequest="42" HeightRequest="42"
+                                   Padding="0" HasShadow="False">
+                                <Label Text="▥" FontSize="20"
+                                       TextColor="#4C51BF"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center"/>
+                            </Frame>
+                            <StackLayout Spacing="1" VerticalOptions="Center">
+                                <Label Text="ESCANEAR TARIMA"
+                                       TextColor="#4C51BF"
+                                       FontSize="11"
+                                       FontAttributes="Bold"
+                                       CharacterSpacing="1"/>
+                                <Label Text="Escanea el código de barras de la tarima"
+                                       TextColor="#9CA3AF"
+                                       FontSize="11"/>
+                            </StackLayout>
+                        </StackLayout>
+
+                        <BoxView HeightRequest="1" Color="#F1F5F9"/>
+
+                        <Frame BackgroundColor="#F8FAFF"
+                               CornerRadius="12"
+                               Padding="14,4"
+                               HasShadow="False"
+                               BorderColor="#E0E7FF">
+                            <Entry x:Name="TarimaCodigoEntry"
+                                   Placeholder="Código de la tarima"
+                                   PlaceholderColor="#9CA3AF"
+                                   TextColor="#1E2235"
+                                   FontSize="16"
+                                   FontAttributes="Bold"
+                                   Keyboard="Numeric"
+                                   ReturnType="Search"
+                                   Completed="OnTarimaEscaneada"/>
+                        </Frame>
+
+                        <Button Text="Buscar tarima"
+                                BackgroundColor="#4C51BF"
+                                TextColor="White"
+                                CornerRadius="14"
+                                HeightRequest="48"
+                                FontSize="14"
+                                FontAttributes="Bold"
+                                Clicked="OnBuscarTarimaClicked"/>
+                    </StackLayout>
+                </Frame>
+
+                <BoxView HeightRequest="20" Color="Transparent"/>
+
+            </StackLayout>
+        </ScrollView>
+
+        <!-- ══════════════════════════════════════
+             OVERLAY DE CARGA
+             ══════════════════════════════════════ -->
+        <Grid x:Name="LoadingOverlay"
+              IsVisible="false"
+              BackgroundColor="#80000000">
             <Frame BackgroundColor="White"
-               CornerRadius="10"
-               HeightRequest="100"
-               WidthRequest="100"
-               HorizontalOptions="Center"
-               VerticalOptions="Center">
-                <StackLayout>
-                    <ActivityIndicator x:Name="LoadingIndicator"
-                                 IsRunning="True"
-                                 Color="#E1251D"
-                                 HeightRequest="50"
-                                 WidthRequest="50"
-                                 HorizontalOptions="Center"
-                                 VerticalOptions="Center" />
-                    <Label Text="Cargando..."
-                       TextColor="#2C3E50"
-                       HorizontalOptions="Center"
-                       VerticalOptions="Center" />
+                   CornerRadius="20"
+                   HeightRequest="104"
+                   WidthRequest="104"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   Padding="0"
+                   HasShadow="True">
+                <StackLayout VerticalOptions="Center"
+                             HorizontalOptions="Center"
+                             Spacing="8">
+                    <ActivityIndicator IsRunning="True"
+                                       Color="#4C51BF"
+                                       HeightRequest="38"
+                                       WidthRequest="38"
+                                       HorizontalOptions="Center"/>
+                    <Label Text="Buscando..."
+                           TextColor="#6B7280"
+                           FontSize="11"
+                           HorizontalOptions="Center"/>
                 </StackLayout>
             </Frame>
         </Grid>
+
     </Grid>
 </ContentPage>

@@ -16688,16 +16688,19 @@ namespace WMS_Movil.Droid
 			public const int scan = 2131165335;
 			
 			// aapt resource value: 0x7F070098
-			public const int test_custom_background = 2131165336;
+			public const int tarima = 2131165336;
 			
 			// aapt resource value: 0x7F070099
-			public const int tienda = 2131165337;
+			public const int test_custom_background = 2131165337;
 			
 			// aapt resource value: 0x7F07009A
-			public const int tooltip_frame_dark = 2131165338;
+			public const int tienda = 2131165338;
 			
 			// aapt resource value: 0x7F07009B
-			public const int tooltip_frame_light = 2131165339;
+			public const int tooltip_frame_dark = 2131165339;
+			
+			// aapt resource value: 0x7F07009C
+			public const int tooltip_frame_light = 2131165340;
 			
 			static Drawable()
 			{
@@ -29664,22 +29667,25 @@ namespace WMS_Movil.Droid
 			public const int image_share_filepaths = 2131820544;
 			
 			// aapt resource value: 0x7F110001
-			public const int standalone_badge = 2131820545;
+			public const int network_security_config = 2131820545;
 			
 			// aapt resource value: 0x7F110002
-			public const int standalone_badge_gravity_bottom_end = 2131820546;
+			public const int standalone_badge = 2131820546;
 			
 			// aapt resource value: 0x7F110003
-			public const int standalone_badge_gravity_bottom_start = 2131820547;
+			public const int standalone_badge_gravity_bottom_end = 2131820547;
 			
 			// aapt resource value: 0x7F110004
-			public const int standalone_badge_gravity_top_start = 2131820548;
+			public const int standalone_badge_gravity_bottom_start = 2131820548;
 			
 			// aapt resource value: 0x7F110005
-			public const int standalone_badge_offset = 2131820549;
+			public const int standalone_badge_gravity_top_start = 2131820549;
 			
 			// aapt resource value: 0x7F110006
-			public const int xamarin_essentials_fileprovider_file_paths = 2131820550;
+			public const int standalone_badge_offset = 2131820550;
+			
+			// aapt resource value: 0x7F110007
+			public const int xamarin_essentials_fileprovider_file_paths = 2131820551;
 			
 			static Xml()
 			{

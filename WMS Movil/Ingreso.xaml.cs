@@ -43,31 +43,59 @@ namespace WMS_Movil
 
             // Actualizar la etiqueta de versión
             VersionLabel.Text = $"Versión: {version}";
+            CheckActiveSession();
+        }
+        private async void CheckActiveSession()
+        {
+            bool sesionActiva = Preferences.Get("SessionActive", false);
+
+            if (sesionActiva)
+            {
+                // Verificar si los datos del usuario están presentes
+                int idUsuario = Preferences.Get("IdUsuarioActual", 0);
+                string nombreUsuario = Preferences.Get("NombreUsuarioActual", "");
+                int nivelUsuario = Preferences.Get("NivelUsuarioActual", 0);
+
+                if (idUsuario > 0 && !string.IsNullOrEmpty(nombreUsuario))
+                {
+                    // Restaurar los datos del usuario
+                    App.IdUsuarioActual = idUsuario;
+                    App.NombreUsuarioActual = nombreUsuario;
+                    App.NivelUsuarioActual = nivelUsuario;
+                    Preferences.Set("UserId", idUsuario);
+                    App.IniciarMonitoreoPedidos();
+                    // Navegar directamente a Home
+                    await Navigation.PushAsync(new Home(nombreUsuario));
+
+                    Console.WriteLine($"Sesión restaurada automáticamente: Usuario {idUsuario}");
+                }
+            }
         }
         private async void OnLoginClicked(object sender, EventArgs e)
         {
-
             if (string.IsNullOrEmpty(UserEntry.Text) || string.IsNullOrEmpty(PasswordEntry.Text))
             {
                 await DisplayAlert("Error", "Por favor ingrese usuario y contraseña", "OK");
                 return;
             }
-            
+
             try
             {
                 LoadingOverlay.IsVisible = true;
                 string connectionString = $"Server={Preferences.Get("ip_address", "")};Database={Preferences.Get("selected_database", "")};User ID={Preferences.Get("username", "")};Password={Preferences.Get("password", "")};";
+
                 using (var connection = new MySqlConnection(connectionString))
                 {
                     connection.Open();
                     string query = @"SELECT 
-                            Id, 
-                            Nombres, 
-                            Apellidos, 
-                            CAST(Activo AS SIGNED) AS Activo, 
-                            CAST(IdNivel AS SIGNED) AS IdNivel 
-                           FROM usuarios 
-                           WHERE Usuario = @usuario AND Password = @password";
+                Id, 
+                Nombres, 
+                Apellidos, 
+                CAST(Activo AS SIGNED) AS Activo, 
+                CAST(IdNivel AS SIGNED) AS IdNivel,
+                DispositivoActivo
+               FROM usuarios 
+               WHERE Usuario = @usuario AND Password = @password";
 
                     using (var command = new MySqlCommand(query, connection))
                     {
@@ -95,6 +123,22 @@ namespace WMS_Movil
                                         return;
                                     }
 
+                                    // Obtener ID único del dispositivo actual
+                                    string dispositivoActual = $"{DeviceInfo.Name}_{DeviceInfo.Model}";
+
+                                    // Verificar si ya hay sesión activa en otro dispositivo
+                                    string dispositivoGuardado = reader["DispositivoActivo"]?.ToString();
+
+                                    if (!string.IsNullOrEmpty(dispositivoGuardado) && dispositivoGuardado != dispositivoActual)
+                                    {
+                                        await DisplayAlert(
+                                            "Sesión Activa",
+                                            $"Este usuario ya tiene una sesión activa en otro dispositivo.\nContacte al administrador para liberar la sesión.",
+                                            "OK");
+                                        return;
+                                    }
+
+                                    // Establecer los datos del usuario actual
                                     App.IdUsuarioActual = reader.GetInt32("Id");
                                     string nombres = reader.GetString("Nombres");
                                     string apellidos = reader.GetString("Apellidos");
@@ -102,7 +146,25 @@ namespace WMS_Movil
                                     App.NombreUsuarioActual = nombreCompleto;
                                     App.NivelUsuarioActual = idNivel;
 
-                                    Application.Current.MainPage = new NavigationPage(new Home(nombreCompleto));
+                                    // Cerrar el reader antes de ejecutar el UPDATE
+                                    reader.Close();
+
+                                    // Registrar el dispositivo actual en la BD
+                                    using (var updateCmd = new MySqlCommand(
+                                        "UPDATE usuarios SET DispositivoActivo = @dispositivo, UltimoAcceso = NOW() WHERE Id = @id",
+                                        connection))
+                                    {
+                                        updateCmd.Parameters.AddWithValue("@dispositivo", dispositivoActual);
+                                        updateCmd.Parameters.AddWithValue("@id", App.IdUsuarioActual);
+                                        updateCmd.ExecuteNonQuery();
+                                    }
+
+                                    // Guardar el estado de la sesión
+                                    SaveSessionState();
+                                    App.IniciarMonitoreoPedidos();
+
+                                    // Navegar al Home
+                                    await Navigation.PushAsync(new Home(nombreCompleto));
                                 }
                                 catch (Exception ex)
                                 {
@@ -126,6 +188,23 @@ namespace WMS_Movil
                 LoadingOverlay.IsVisible = false;
             }
         }
+
+        // NUEVO MÉTODO: Para guardar el estado de sesión
+        private void SaveSessionState()
+        {
+            // Guardar datos de sesión en Preferences
+            Preferences.Set("SessionActive", true);
+            Preferences.Set("IdUsuarioActual", App.IdUsuarioActual);
+            Preferences.Set("NombreUsuarioActual", App.NombreUsuarioActual ?? "");
+            Preferences.Set("NivelUsuarioActual", App.NivelUsuarioActual);
+            Preferences.Set("UserId", App.IdUsuarioActual);
+            // Registrar la página actual
+            App.CurrentPageName = "Home"; // Estamos navegando a Home
+            Preferences.Set("CurrentPageName", App.CurrentPageName);
+
+            Console.WriteLine($"Sesión guardada: Usuario {App.IdUsuarioActual}, Nivel {App.NivelUsuarioActual}");
+        }
+
         private async void OnLogoTapped(object sender, EventArgs e)
         {
             if (isPasswordDialogOpen) return;

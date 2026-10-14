@@ -1,0 +1,276 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WMS_Movil.Reportes.DetalleMisPedidos"
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="#f8f9fa">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Frame Grid.Row="0" 
+               BackgroundColor="#2d3748" 
+               CornerRadius="0" 
+               Padding="12,10" 
+               Margin="0"
+               HasShadow="False">
+            <Grid ColumnDefinitions="Auto,*">
+                <Button Grid.Column="0"
+                        Text="⬅"
+                        BackgroundColor="#4a5568"
+                        TextColor="White"
+                        CornerRadius="12"
+                        HeightRequest="30"
+                        WidthRequest="30"
+                        FontSize="14"
+                        Padding="0"
+                        Clicked="OnBackClicked"/>
+
+                <StackLayout Grid.Column="1" 
+                             VerticalOptions="Center" 
+                             HorizontalOptions="Center"
+                             Spacing="1">
+                    <Label x:Name="TituloLabel"
+                           Text="Detalle de Tarima"
+                           TextColor="White"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center"/>
+                    <Label x:Name="SubtituloLabel"
+                           Text="Pedido #0 - Hoja 0"
+                           TextColor="#cbd5e0"
+                           FontSize="11"
+                           HorizontalOptions="Center"/>
+                    <Label x:Name="TarimasResumenLabel"
+                           Text=""
+                           IsVisible="False"
+                           TextColor="#9AE6B4"
+                           FontSize="10"
+                           FontAttributes="Bold"
+                           LineBreakMode="WordWrap"
+                           HorizontalTextAlignment="Center"
+                           HorizontalOptions="Center"/>
+                </StackLayout>
+            </Grid>
+        </Frame>
+
+        <!-- Resumen compacto -->
+        <!-- Resumen compacto -->
+        <Frame Grid.Row="1"
+       BackgroundColor="White"
+       CornerRadius="0"
+       Padding="10,8"
+       Margin="0"
+       HasShadow="True">
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="6">
+                <Frame Grid.Column="0"
+               BackgroundColor="#EDF2F7"
+               CornerRadius="6"
+               Padding="6,4"
+               HasShadow="False">
+                    <StackLayout Spacing="1">
+                        <Label Text="SKUs"
+                       FontSize="9"
+                       TextColor="#718096"
+                       HorizontalOptions="Center"/>
+                        <Label x:Name="TotalLabel"
+                       Text="0"
+                       TextColor="#4c51bf"
+                       FontSize="16"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Center"/>
+                    </StackLayout>
+                </Frame>
+
+                <Frame Grid.Column="1"
+               BackgroundColor="#F0FFF4"
+               CornerRadius="6"
+               Padding="6,4"
+               HasShadow="False">
+                    <StackLayout Spacing="1">
+                        <Label Text="Fardos"
+                       FontSize="9"
+                       TextColor="#718096"
+                       HorizontalOptions="Center"/>
+                        <Label x:Name="PreparadosLabel"
+                       Text="0"
+                       TextColor="#48BB78"
+                       FontSize="16"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Center"/>
+                    </StackLayout>
+                </Frame>
+
+                <Frame Grid.Column="2"
+               BackgroundColor="#FFF5F5"
+               CornerRadius="6"
+               Padding="6,4"
+               HasShadow="False">
+                    <StackLayout Spacing="1">
+                        <Label Text="Hojas"
+                       FontSize="9"
+                       TextColor="#718096"
+                       HorizontalOptions="Center"/>
+                        <Label x:Name="PendientesLabel"
+                       Text="0"
+                       TextColor="#E53E3E"
+                       FontSize="16"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Center"/>
+                    </StackLayout>
+                </Frame>
+            </Grid>
+        </Frame>
+
+        <!-- Lista de productos -->
+        <ScrollView Grid.Row="2">
+            <StackLayout Padding="10,8">
+                <CollectionView x:Name="ProductosCollection"
+                               SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Frame Margin="0,0,0,8"
+                                   CornerRadius="8"
+                                   BackgroundColor="White"
+                                   HasShadow="True"
+                                   Padding="10"
+                                   BorderColor="{Binding ColorBorde}">
+                                <Grid RowSpacing="6">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Fila 1: UPC y Estado -->
+                                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                                        <Label Grid.Column="0"
+                                               Text="{Binding UPC, StringFormat='UPC: {0}'}"
+                                               TextColor="#4a5568"
+                                               FontAttributes="Bold"
+                                               FontSize="11"/>
+
+                                        <Frame Grid.Column="1"
+                                               BackgroundColor="{Binding ColorEstado}"
+                                               CornerRadius="6"
+                                               Padding="5,2"
+                                               HasShadow="False">
+                                            <Label Text="{Binding TextoEstado}"
+                                                   TextColor="White"
+                                                   FontSize="9"
+                                                   FontAttributes="Bold"/>
+                                        </Frame>
+                                    </Grid>
+
+                                    <!-- Fila 2: Descripción -->
+                                    <Label Grid.Row="1"
+                                           Text="{Binding Descripcion}"
+                                           TextColor="#1a202c"
+                                           FontSize="13"
+                                           FontAttributes="Bold"
+                                           LineBreakMode="WordWrap"
+                                           MaxLines="2"/>
+
+                                    <!-- Fila 3: Cantidades -->
+                                    <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="6">
+                                        <Frame Grid.Column="0"
+                                               BackgroundColor="#FFF5F5"
+                                               CornerRadius="5"
+                                               Padding="6,4"
+                                               HasShadow="False">
+                                            <StackLayout Spacing="1">
+                                                <Label Text="Solicitada"
+                                                       FontSize="9"
+                                                       TextColor="#718096"
+                                                       HorizontalOptions="Center"/>
+                                                <Label Text="{Binding Cantidad}"
+                                                       TextColor="#E53E3E"
+                                                       FontSize="15"
+                                                       FontAttributes="Bold"
+                                                       HorizontalOptions="Center"/>
+                                            </StackLayout>
+                                        </Frame>
+
+                                        <Frame Grid.Column="1"
+                                               BackgroundColor="#F0FFF4"
+                                               CornerRadius="5"
+                                               Padding="6,4"
+                                               HasShadow="False">
+                                            <StackLayout Spacing="1">
+                                                <Label Text="En tarima"
+                                                       FontSize="9"
+                                                       TextColor="#718096"
+                                                       HorizontalOptions="Center"/>
+                                                <Label Text="{Binding CantConfirmada}"
+                                                       TextColor="#48BB78"
+                                                       FontSize="15"
+                                                       FontAttributes="Bold"
+                                                       HorizontalOptions="Center"/>
+                                            </StackLayout>
+                                        </Frame>
+                                    </Grid>
+
+                                    <!-- Fila 4: Info adicional -->
+                                    <StackLayout Grid.Row="3" Spacing="2">
+                                        <Label Text="{Binding NombreCompleto, StringFormat='👤 {0}'}"
+                                               TextColor="#718096"
+                                               FontSize="10"/>
+                                        <Label Text="{Binding FechahorapreparoFormateada, StringFormat='📅 {0}'}"
+                                               TextColor="#718096"
+                                               FontSize="10"/>
+                                        <Label Text="{Binding DescripcionMotivo, StringFormat='📋 {0}'}"
+                                               TextColor="#718096"
+                                               FontSize="10"/>
+                                        <Frame IsVisible="{Binding TieneTarima}"
+                                               BackgroundColor="#ECFDF5"
+                                               BorderColor="#A7F3D0"
+                                               CornerRadius="5"
+                                               Padding="6,3"
+                                               Margin="0,2,0,0"
+                                               HasShadow="False">
+                                            <Label Text="{Binding TextoTarima, StringFormat='📦 {0}'}"
+                                                   TextColor="#065F46"
+                                                   FontSize="10"
+                                                   FontAttributes="Bold"
+                                                   LineBreakMode="WordWrap"/>
+                                        </Frame>
+                                    </StackLayout>
+                                </Grid>
+                            </Frame>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </StackLayout>
+        </ScrollView>
+
+        <!-- Loading Overlay -->
+        <Grid x:Name="LoadingOverlay" 
+              IsVisible="False"
+              BackgroundColor="#80000000"
+              Grid.RowSpan="3">
+            <Frame BackgroundColor="White"
+                   CornerRadius="10"
+                   HeightRequest="90"
+                   WidthRequest="90"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center">
+                <StackLayout Spacing="8">
+                    <ActivityIndicator IsRunning="True"
+                                       Color="#4c51bf"
+                                       HeightRequest="40"
+                                       WidthRequest="40"/>
+                    <Label Text="Cargando..."
+                           TextColor="#2d3748"
+                           FontSize="12"
+                           HorizontalOptions="Center"/>
+                </StackLayout>
+            </Frame>
+        </Grid>
+    </Grid>
+</ContentPage>

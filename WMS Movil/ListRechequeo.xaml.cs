@@ -1,129 +1,233 @@
-﻿using MySqlConnector;
+using MySqlConnector;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
+using WMS_Movil.Servicio;
 using Xamarin.Essentials;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 
 namespace WMS_Movil
 {
+    // Rechequeo: se escanea el código de barras de la tarima (su IdTarima) y se abre
+    // directo el detalle, sin pasar por el número de pedido.
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class ListRechequeo : ContentPage
     {
-        private List<PedidoPendiente> todosLosPedidos;
+        private class TarimaEscaneada
+        {
+            public int IdPedido { get; set; }
+            public int NoTarima { get; set; }
+            public bool EnPreparacion { get; set; }
+            public bool YaRechequeada { get; set; }
+            public int? IdUsuarioChequeo { get; set; }
+            public string NombreUsuarioChequeo { get; set; }
+            public int Productos { get; set; }
+        }
+
+        private class TarimaPendiente
+        {
+            public int IdPedido { get; set; }
+            public int NoTarima { get; set; }
+        }
+
+        private bool _buscando = false;
+
         public ListRechequeo()
         {
             InitializeComponent();
-            CargarPedidos();
         }
+
         protected override void OnAppearing()
         {
             base.OnAppearing();
-            CargarPedidos();
+            TarimaCodigoEntry.Text = string.Empty;
+            Device.BeginInvokeOnMainThread(() => TarimaCodigoEntry.Focus());
         }
 
-        private async void CargarPedidos()
+        private string BuildConnectionString() =>
+            $"Server={Preferences.Get("ip_address", "")};Database={Preferences.Get("selected_database", "")};User ID={Preferences.Get("username", "")};Password={Preferences.Get("password", "")};";
+
+        private async void OnBackClicked(object sender, EventArgs e)
         {
+            await Navigation.PopAsync();
+        }
+
+        private async void OnTarimaEscaneada(object sender, EventArgs e)
+        {
+            await BuscarTarima();
+        }
+
+        private async void OnBuscarTarimaClicked(object sender, EventArgs e)
+        {
+            await BuscarTarima();
+        }
+
+        private async Task BuscarTarima()
+        {
+            if (_buscando) return;
+
+            var texto = TarimaCodigoEntry.Text?.Trim();
+
+            if (string.IsNullOrEmpty(texto))
+            {
+                await DisplayAlert("Atención", "Escanea el código de barras de la tarima.", "OK");
+                ReiniciarEscaneo();
+                return;
+            }
+
+            if (!int.TryParse(texto, out int idTarima) || idTarima <= 0)
+            {
+                await DisplayAlert("Código inválido", "El código de la tarima debe ser numérico.", "OK");
+                ReiniciarEscaneo();
+                return;
+            }
+
+            _buscando = true;
+            LoadingOverlay.IsVisible = true;
             try
             {
-                string connectionString = $"Server={Preferences.Get("ip_address", "")};Database={Preferences.Get("selected_database", "")};User ID={Preferences.Get("username", "")};Password={Preferences.Get("password", "")};";
-                using (var connection = new MySqlConnection(connectionString))
-                {
-                    connection.Open();
-                    string query = @"SELECT
-                                        pb.IdPedidos, 
-                                        pb.Fecha, 
-                                        CONCAT(pb.NombreEmpresa, ' - ', pb.Departamento) as NombreEmpresa, 
-                                        pb.TotalCantidad,
-                                        COUNT(dpb.Id) AS CantidadLineas
-                                    FROM
-                                        pedidostienda_bodega pb
-                                    INNER JOIN
-                                        detallepedidostienda_bodega dpb ON pb.IdPedidos = dpb.IdConsolidado
-                                    WHERE
-                                        pb.Estado = 6
-                                    GROUP BY
-                                        pb.IdPedidos, pb.Fecha, pb.NombreEmpresa, pb.Departamento, pb.TotalCantidad";
+                TarimaEscaneada tarima = null;
+                TarimaPendiente pendiente = null;
+                int idUsuario = App.IdUsuarioActual;
 
-                    using (var command = new MySqlCommand(query, connection))
-                    using (var reader = command.ExecuteReader())
+                await Task.Run(() =>
+                {
+                    using (var connection = new MySqlConnection(BuildConnectionString()))
                     {
-                        var pedidos = new List<PedidoPendiente>();
-                        while (reader.Read())
+                        connection.Open();
+
+                        using (var cmd = new MySqlCommand(@"
+                            SELECT ti.IdPedido, ti.NoTarima, ti.FechaFinalizacion,
+                                   ti.IdUsuarioChequeo, ti.FechaHoraFin,
+                                   COALESCE(ti.EstadoChequeo, 0) AS EstadoChequeo,
+                                   u.NombreCompleto AS NombreUsuarioChequeo
+                            FROM TarimasInventario ti
+                            LEFT JOIN usuarios u ON ti.IdUsuarioChequeo = u.Id
+                            WHERE ti.IdTarima = @IdTarima", connection))
                         {
-                            pedidos.Add(new PedidoPendiente
+                            cmd.Parameters.AddWithValue("@IdTarima", idTarima);
+                            using (var r = cmd.ExecuteReader())
                             {
-                                IdPedidos = reader.GetInt32("IdPedidos"),
-                                Fecha = reader.GetDateTime("Fecha"),
-                                NombreEmpresa = reader.GetString("NombreEmpresa"),
-                                TotalCantidad = reader.GetDouble("TotalCantidad"),
-                                CantidadLineas = reader.GetInt32("CantidadLineas")
-                            });
+                                if (r.Read())
+                                {
+                                    tarima = new TarimaEscaneada
+                                    {
+                                        IdPedido = Convert.ToInt32(r["IdPedido"]),
+                                        NoTarima = Convert.ToInt32(r["NoTarima"]),
+                                        EnPreparacion = r.IsDBNull(r.GetOrdinal("FechaFinalizacion")),
+                                        YaRechequeada = !r.IsDBNull(r.GetOrdinal("FechaHoraFin"))
+                                                        || Convert.ToInt32(r["EstadoChequeo"]) == 1,
+                                        IdUsuarioChequeo = r.IsDBNull(r.GetOrdinal("IdUsuarioChequeo"))
+                                            ? (int?)null : Convert.ToInt32(r["IdUsuarioChequeo"]),
+                                        NombreUsuarioChequeo = r.IsDBNull(r.GetOrdinal("NombreUsuarioChequeo"))
+                                            ? "otro usuario" : r.GetString("NombreUsuarioChequeo")
+                                    };
+                                }
+                            }
                         }
-                        todosLosPedidos = pedidos;
-                        PedidosCollection.ItemsSource = pedidos;
+
+                        if (tarima == null) return;
+
+                        // Rechequeo que este usuario empezó y no ha terminado, en cualquier pedido
+                        using (var cmd = new MySqlCommand(@"
+                            SELECT IdPedido, NoTarima
+                            FROM TarimasInventario
+                            WHERE IdUsuarioChequeo = @IdUsuario
+                              AND FechaHoraFin IS NULL
+                              AND IdTarima <> @IdTarima
+                            ORDER BY FechaHoraInicio
+                            LIMIT 1", connection))
+                        {
+                            cmd.Parameters.AddWithValue("@IdUsuario", idUsuario);
+                            cmd.Parameters.AddWithValue("@IdTarima", idTarima);
+                            using (var r = cmd.ExecuteReader())
+                            {
+                                if (r.Read())
+                                {
+                                    pendiente = new TarimaPendiente
+                                    {
+                                        IdPedido = Convert.ToInt32(r["IdPedido"]),
+                                        NoTarima = Convert.ToInt32(r["NoTarima"])
+                                    };
+                                }
+                            }
+                        }
+
+                        // Productos normales + partes de productos repartidos
+                        tarima.Productos = RepartoTarimas.ContarProductosEnTarima(
+                            connection, null, tarima.IdPedido, tarima.NoTarima);
                     }
+                });
+
+                if (tarima == null)
+                {
+                    await DisplayAlert("No encontrada", $"No existe una tarima con el código {idTarima}.", "OK");
+                    ReiniciarEscaneo();
+                    return;
                 }
+
+                string nombreTarima = $"Tarima #{tarima.NoTarima} del Pedido #{tarima.IdPedido}";
+
+                if (pendiente != null)
+                {
+                    await DisplayAlert("Rechequeo pendiente",
+                        $"Tienes sin terminar la Tarima #{pendiente.NoTarima} del Pedido #{pendiente.IdPedido}.\n\n" +
+                        "Debes finalizarla antes de rechequear otra tarima.", "OK");
+                    ReiniciarEscaneo();
+                    return;
+                }
+
+                if (tarima.EnPreparacion)
+                {
+                    await DisplayAlert("En preparación",
+                        $"La {nombreTarima} aún está en preparación. Se podrá rechequear cuando sea entregada.", "OK");
+                    ReiniciarEscaneo();
+                    return;
+                }
+
+                if (tarima.YaRechequeada)
+                {
+                    await DisplayAlert("Tarima ya rechequeada",
+                        $"La {nombreTarima} ya fue verificada completamente.", "OK");
+                    ReiniciarEscaneo();
+                    return;
+                }
+
+                if (tarima.IdUsuarioChequeo.HasValue && tarima.IdUsuarioChequeo.Value != idUsuario)
+                {
+                    await DisplayAlert("Tarima bloqueada",
+                        $"La {nombreTarima} está siendo rechequeada por {tarima.NombreUsuarioChequeo}.", "OK");
+                    ReiniciarEscaneo();
+                    return;
+                }
+
+                if (tarima.Productos == 0)
+                {
+                    await DisplayAlert("Tarima vacía",
+                        $"La {nombreTarima} no tiene productos asignados.", "OK");
+                    ReiniciarEscaneo();
+                    return;
+                }
+
+                TarimaCodigoEntry.Text = string.Empty;
+                await Navigation.PushAsync(new DetalleHojarechequeo(tarima.IdPedido, tarima.NoTarima));
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", "Error al cargar pedidos: " + ex.Message, "OK");
+                await DisplayAlert("Error", "Error al buscar la tarima: " + ex.Message, "OK");
+                ReiniciarEscaneo();
             }
-        }
-
-        private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(e.NewTextValue))
-                PedidosCollection.ItemsSource = todosLosPedidos;
-            else
+            finally
             {
-                var filtrado = todosLosPedidos.Where(p =>
-                    p.IdPedidos.ToString().Contains(e.NewTextValue));
-                PedidosCollection.ItemsSource = filtrado;
+                LoadingOverlay.IsVisible = false;
+                _buscando = false;
             }
         }
 
-        private async void OnPedidoSelected(object sender, SelectionChangedEventArgs e)
+        private void ReiniciarEscaneo()
         {
-            if (e.CurrentSelection.FirstOrDefault() is PedidoPendiente pedido)
-            {
-                try
-                {
-                    Device.BeginInvokeOnMainThread(() =>
-                    {
-                        LoadingOverlay.IsVisible = true;
-                    });
-
-                    // Esperar un momento para asegurar que el LoadingOverlay sea visible
-                    await Task.Delay(100);
-
-                    // Navegar a DetalleHojaUbicaciones
-                    await Navigation.PushAsync(new DetalleHojarechequeo(pedido.IdPedidos, null));
-                }
-                catch (Exception ex)
-                {
-                    await DisplayAlert("Error", "Error al procesar el pedido: " + ex.Message, "OK");
-                }
-                finally
-                {
-                    PedidosCollection.SelectedItem = null;
-                }
-                Device.BeginInvokeOnMainThread(() =>
-                {
-                    LoadingOverlay.IsVisible = false;
-                });
-            }
+            TarimaCodigoEntry.Text = string.Empty;
+            Device.BeginInvokeOnMainThread(() => TarimaCodigoEntry.Focus());
         }
-    public class PedidoPendiente
-    {
-        public int IdPedidos { get; set; }
-        public DateTime Fecha { get; set; }
-        public string NombreEmpresa { get; set; }
-        public double TotalCantidad { get; set; }
-        public int CantidadLineas { get; set; }
     }
-}
 }

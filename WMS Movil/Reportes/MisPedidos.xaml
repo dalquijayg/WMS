@@ -1,0 +1,320 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WMS_Movil.Reportes.MisPedidos"
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="#f8f9fa">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Frame Grid.Row="0" 
+               BackgroundColor="#2d3748" 
+               CornerRadius="0" 
+               Padding="15,12" 
+               Margin="0"
+               HasShadow="False">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Button Grid.Column="0"
+                        Text="⬅"
+                        BackgroundColor="#4a5568"
+                        TextColor="White"
+                        CornerRadius="12"
+                        HeightRequest="32"
+                        WidthRequest="32"
+                        FontSize="14"
+                        Padding="0"
+                        Clicked="OnBackClicked"/>
+
+                <StackLayout Grid.Column="1" 
+                             VerticalOptions="Center" 
+                             HorizontalOptions="Center"
+                             Spacing="2">
+                    <Label Text="Mis Tarimas Realizadas"
+                           TextColor="White"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center"/>
+                    <Label x:Name="SubtitleLabel"
+                           Text="Historial de preparaciones"
+                           TextColor="#cbd5e0"
+                           FontSize="11"
+                           HorizontalOptions="Center"/>
+                </StackLayout>
+
+                <Image Grid.Column="2"
+                       Source="refresh.png"
+                       HeightRequest="24"
+                       WidthRequest="24"
+                       VerticalOptions="Center">
+                    <Image.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnRefreshClicked"/>
+                    </Image.GestureRecognizers>
+                </Image>
+            </Grid>
+        </Frame>
+
+        <!-- Filtros y estadísticas -->
+        <Frame Grid.Row="1"
+               BackgroundColor="White"
+               CornerRadius="0"
+               Padding="12,10"
+               Margin="0"
+               HasShadow="True">
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                <!-- Total Tarimas -->
+                <Frame Grid.Column="0"
+                       BackgroundColor="#EDF2F7"
+                       CornerRadius="8"
+                       Padding="8,6"
+                       HasShadow="False">
+                    <StackLayout Spacing="2">
+                        <Label Text="Tarimas"
+                               FontSize="10"
+                               TextColor="#718096"
+                               HorizontalOptions="Center"/>
+                        <Label x:Name="TotalLabel"
+                               Text="0"
+                               TextColor="#4c51bf"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               HorizontalOptions="Center"/>
+                    </StackLayout>
+                </Frame>
+
+                <!-- Total SKUs -->
+                <Frame Grid.Column="1"
+                       BackgroundColor="#F0FFF4"
+                       CornerRadius="8"
+                       Padding="8,6"
+                       HasShadow="False">
+                    <StackLayout Spacing="2">
+                        <Label Text="SKUs"
+                               FontSize="10"
+                               TextColor="#718096"
+                               HorizontalOptions="Center"/>
+                        <Label x:Name="HojasLabel"
+                               Text="0"
+                               TextColor="#48BB78"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               HorizontalOptions="Center"/>
+                    </StackLayout>
+                </Frame>
+
+                <!-- Total Fardos -->
+                <Frame Grid.Column="2"
+                       BackgroundColor="#FFF5F5"
+                       CornerRadius="8"
+                       Padding="8,6"
+                       HasShadow="False">
+                    <StackLayout Spacing="2">
+                        <Label Text="Fardos"
+                               FontSize="10"
+                               TextColor="#718096"
+                               HorizontalOptions="Center"/>
+                        <Label x:Name="ProductosLabel"
+                               Text="0"
+                               TextColor="#E53E3E"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               HorizontalOptions="Center"/>
+                    </StackLayout>
+                </Frame>
+            </Grid>
+        </Frame>
+
+        <!-- Lista de pedidos -->
+        <RefreshView Grid.Row="2"
+                     IsRefreshing="{Binding IsRefreshing}"
+                     RefreshColor="#4c51bf"
+                     Command="{Binding RefreshCommand}">
+            <ScrollView>
+                <StackLayout Padding="12,8">
+                    <!-- Mensaje cuando no hay datos -->
+                    <Frame x:Name="EmptyFrame"
+                           IsVisible="False"
+                           BackgroundColor="White"
+                           CornerRadius="10"
+                           Padding="20"
+                           HasShadow="True"
+                           Margin="0,40,0,0">
+                        <StackLayout Spacing="12" HorizontalOptions="Center">
+                            <Image Source="info.png"
+                                   HeightRequest="50"
+                                   Aspect="AspectFit"/>
+                            <Label Text="No hay tarimas realizadas"
+                                   TextColor="#4a5568"
+                                   FontSize="16"
+                                   FontAttributes="Bold"
+                                   HorizontalOptions="Center"/>
+                            <Label Text="Las tarimas que prepares aparecerán aquí"
+                                   TextColor="#718096"
+                                   FontSize="13"
+                                   HorizontalOptions="Center"/>
+                        </StackLayout>
+                    </Frame>
+
+                    <!-- CollectionView de pedidos -->
+                    <CollectionView x:Name="PedidosCollection"
+                                   SelectionMode="Single"
+                                   SelectionChanged="OnPedidoSelected">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Frame Margin="0,0,0,10"
+                                       CornerRadius="10"
+                                       BackgroundColor="White"
+                                       HasShadow="True"
+                                       Padding="12">
+                                    <Grid RowSpacing="8">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+
+                                        <!-- Fila 1: Header con Pedido y Tarima -->
+                                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                                            <StackLayout Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                                                <Label Text="{Binding IdPedido, StringFormat='Pedido #{0}'}"
+                                                       TextColor="#2d3748"
+                                                       FontAttributes="Bold"
+                                                       FontSize="15"/>
+                                                <Label Text="{Binding NoTarima, StringFormat='Tarima {0}'}"
+                                                       TextColor="#4c51bf"
+                                                       FontAttributes="Bold"
+                                                       FontSize="15"/>
+                                            </StackLayout>
+
+                                            <Frame Grid.Column="1"
+                                                   BackgroundColor="{Binding ColorEstado}"
+                                                   CornerRadius="8"
+                                                   Padding="6,3"
+                                                   HasShadow="False">
+                                                <Label Text="{Binding TextoEstado}"
+                                                       TextColor="White"
+                                                       FontSize="10"
+                                                       FontAttributes="Bold"/>
+                                            </Frame>
+                                        </Grid>
+
+                                        <!-- Fila 2: Información de la tarima -->
+                                        <StackLayout Grid.Row="1" Spacing="3">
+                                            <Label Text="{Binding NombreEmpresa, StringFormat='🏢 {0}'}"
+                                                   TextColor="#4a5568"
+                                                   FontSize="12"
+                                                   LineBreakMode="TailTruncation"/>
+                                            <StackLayout Orientation="Horizontal" Spacing="10">
+                                                <Label Text="{Binding TextoInventario, StringFormat='📦 {0}'}"
+                                                       TextColor="#4a5568"
+                                                       FontSize="11"/>
+                                                <Label Text="{Binding TextoHojas, StringFormat='📄 {0}'}"
+                                                       TextColor="#4a5568"
+                                                       FontSize="11"/>
+                                            </StackLayout>
+                                            <Label Text="{Binding TiempoTranscurrido, StringFormat='⏱ Duración: {0}'}"
+                                                   TextColor="#718096"
+                                                   FontSize="11"/>
+                                        </StackLayout>
+
+                                        <!-- Separador -->
+                                        <BoxView Grid.Row="2" 
+                                                 HeightRequest="1" 
+                                                 BackgroundColor="#e2e8f0"/>
+
+                                        <!-- Fila 3: Estadísticas -->
+                                        <Grid Grid.Row="3" ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                                            <Frame Grid.Column="0"
+                                                   BackgroundColor="#EDF2F7"
+                                                   CornerRadius="6"
+                                                   Padding="6,4"
+                                                   HasShadow="False">
+                                                <StackLayout Spacing="1">
+                                                    <Label Text="Inicio"
+                                                           FontSize="9"
+                                                           TextColor="#718096"
+                                                           HorizontalOptions="Center"/>
+                                                    <Label Text="{Binding HoraInicio}"
+                                                           TextColor="#4c51bf"
+                                                           FontSize="14"
+                                                           FontAttributes="Bold"
+                                                           HorizontalOptions="Center"/>
+                                                </StackLayout>
+                                            </Frame>
+
+                                            <Frame Grid.Column="1"
+                                                   BackgroundColor="#F0FFF4"
+                                                   CornerRadius="6"
+                                                   Padding="6,4"
+                                                   HasShadow="False">
+                                                <StackLayout Spacing="1">
+                                                    <Label Text="SKUs"
+                                                           FontSize="9"
+                                                           TextColor="#718096"
+                                                           HorizontalOptions="Center"/>
+                                                    <Label Text="{Binding TotalSkus}"
+                                                           TextColor="#48BB78"
+                                                           FontSize="14"
+                                                           FontAttributes="Bold"
+                                                           HorizontalOptions="Center"/>
+                                                </StackLayout>
+                                            </Frame>
+
+                                            <Frame Grid.Column="2"
+                                                   BackgroundColor="#FFF5F5"
+                                                   CornerRadius="6"
+                                                   Padding="6,4"
+                                                   HasShadow="False">
+                                                <StackLayout Spacing="1">
+                                                    <Label Text="Fardos"
+                                                           FontSize="9"
+                                                           TextColor="#718096"
+                                                           HorizontalOptions="Center"/>
+                                                    <Label Text="{Binding TotalFardos}"
+                                                           TextColor="#E53E3E"
+                                                           FontSize="14"
+                                                           FontAttributes="Bold"
+                                                           HorizontalOptions="Center"/>
+                                                </StackLayout>
+                                            </Frame>
+                                        </Grid>
+                                    </Grid>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </StackLayout>
+            </ScrollView>
+        </RefreshView>
+
+        <!-- Loading Overlay -->
+        <Grid x:Name="LoadingOverlay" 
+              IsVisible="False"
+              BackgroundColor="#80000000"
+              Grid.RowSpan="3">
+            <Frame BackgroundColor="White"
+                   CornerRadius="10"
+                   HeightRequest="90"
+                   WidthRequest="90"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center">
+                <StackLayout Spacing="8">
+                    <ActivityIndicator IsRunning="True"
+                                       Color="#4c51bf"
+                                       HeightRequest="40"
+                                       WidthRequest="40"/>
+                    <Label Text="Cargando..."
+                           TextColor="#2d3748"
+                           FontSize="12"
+                           HorizontalOptions="Center"/>
+                </StackLayout>
+            </Frame>
+        </Grid>
+    </Grid>
+</ContentPage>

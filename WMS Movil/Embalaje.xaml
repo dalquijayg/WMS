@@ -1,0 +1,487 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WMS_Movil.Embalaje"
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="#F1F5F9">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+        <!-- ══════════════════════════════════════
+             HEADER
+             ══════════════════════════════════════ -->
+        <Grid Grid.Row="0" HeightRequest="86">
+            <BoxView Color="#4C51BF"/>
+            <BoxView Color="#5558C8" CornerRadius="60"
+                     WidthRequest="120" HeightRequest="120"
+                     HorizontalOptions="End" VerticalOptions="Start"
+                     TranslationX="50" TranslationY="-50"/>
+            <BoxView Color="#3D42B0" CornerRadius="40"
+                     WidthRequest="80" HeightRequest="80"
+                     HorizontalOptions="Start" VerticalOptions="End"
+                     TranslationX="-25" TranslationY="25"/>
+
+            <Grid ColumnDefinitions="Auto,*,Auto"
+                  Padding="14,0" VerticalOptions="Center"
+                  Margin="0,8,0,0">
+                <Frame Grid.Column="0"
+                       BackgroundColor="#3B3FA0" CornerRadius="10"
+                       WidthRequest="36" HeightRequest="36"
+                       Padding="0" HasShadow="False">
+                    <Label Text="←" TextColor="White" FontSize="18"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnBackClicked"/>
+                        </Label.GestureRecognizers>
+                    </Label>
+                </Frame>
+
+                <StackLayout Grid.Column="1" HorizontalOptions="Center"
+                             VerticalOptions="Center" Spacing="1">
+                    <Label Text="Embalaje" TextColor="White"
+                           FontSize="16" FontAttributes="Bold"
+                           HorizontalTextAlignment="Center"/>
+                    <Label Text="Traslado de productos entre tarimas"
+                           TextColor="#C7D2FE" FontSize="10"
+                           HorizontalTextAlignment="Center"/>
+                </StackLayout>
+
+                <!-- Al tocarlo se abre el escaneo de la tarima destino -->
+                <Frame Grid.Column="2"
+                       x:Name="BtnTarimaDestino"
+                       BackgroundColor="#FCD34D" CornerRadius="10"
+                       WidthRequest="36" HeightRequest="36"
+                       Padding="5" HasShadow="False">
+                    <Frame.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnAbrirDestinoTapped"/>
+                    </Frame.GestureRecognizers>
+                    <Image Source="tarima.png"
+                           InputTransparent="True"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center"/>
+                </Frame>
+            </Grid>
+        </Grid>
+
+        <!-- ══════════════════════════════════════
+             ZONA FIJA SUPERIOR: tarima origen, destino y escaneo
+             ══════════════════════════════════════ -->
+        <StackLayout Grid.Row="1"
+                     x:Name="TopArea"
+                     IsVisible="False"
+                     Padding="14,10,14,4" Spacing="8">
+
+            <!-- Info tarima origen -->
+            <Frame x:Name="PanelInfoOrigen"
+                   BackgroundColor="#EEF2FF" CornerRadius="14"
+                   Padding="12,8" HasShadow="False">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <Frame Grid.Column="0"
+                           BackgroundColor="#4C51BF" CornerRadius="10"
+                           WidthRequest="32" HeightRequest="32"
+                           Padding="6" HasShadow="False">
+                        <Image Source="tarima.png"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"/>
+                    </Frame>
+                    <StackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                        <Label x:Name="InfoTarimaOrigenLabel"
+                               TextColor="#3730A3" FontSize="12"
+                               FontAttributes="Bold"
+                               MaxLines="2" LineBreakMode="TailTruncation"/>
+                        <Label Text="Tarima origen activa"
+                               TextColor="#6366F1" FontSize="10"/>
+                    </StackLayout>
+                    <Label Grid.Column="2" Text="✕"
+                           TextColor="#6366F1" FontSize="16"
+                           VerticalOptions="Center">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnCambiarOrigenClicked"/>
+                        </Label.GestureRecognizers>
+                    </Label>
+                </Grid>
+            </Frame>
+
+            <!-- Tarima destino asignada (bien visible) -->
+            <Frame x:Name="PanelDestinoActivo"
+                   IsVisible="False"
+                   BackgroundColor="#FEF3C7" CornerRadius="14"
+                   BorderColor="#F59E0B"
+                   Padding="12,8" HasShadow="False">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <Frame Grid.Column="0"
+                           BackgroundColor="#D97706" CornerRadius="10"
+                           WidthRequest="32" HeightRequest="32"
+                           Padding="0" HasShadow="False">
+                        <Label Text="→" TextColor="White" FontSize="20"
+                               FontAttributes="Bold"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center"/>
+                    </Frame>
+                    <StackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                        <Label Text="TARIMA DESTINO"
+                               TextColor="#B45309" FontSize="10"
+                               FontAttributes="Bold" CharacterSpacing="1"/>
+                        <Label x:Name="DestinoActivoLabel"
+                               TextColor="#78350F" FontSize="18"
+                               FontAttributes="Bold"/>
+                        <Label x:Name="DestinoPedidoLabel"
+                               IsVisible="False"
+                               TextColor="#B45309" FontSize="10"
+                               FontAttributes="Bold"/>
+                    </StackLayout>
+                    <Label Grid.Column="2" Text="✕"
+                           TextColor="#B45309" FontSize="18"
+                           VerticalOptions="Center"
+                           Padding="6,0">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnQuitarDestinoClicked"/>
+                        </Label.GestureRecognizers>
+                    </Label>
+                </Grid>
+            </Frame>
+
+            <!-- Escanear UPC -->
+            <Frame x:Name="UpcFrame"
+                   BackgroundColor="White" CornerRadius="12"
+                   Padding="10,4" HasShadow="False"
+                   BorderColor="#818CF8">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <Label Grid.Column="0" Text="📷" FontSize="16"
+                           VerticalOptions="Center"/>
+                    <Entry Grid.Column="1"
+                           x:Name="UpcEntry"
+                           Placeholder="Escanear producto (otra vez para quitar)"
+                           PlaceholderColor="#9CA3AF"
+                           TextColor="#1F2937" FontSize="13"
+                           ReturnType="Done"
+                           Completed="OnUpcCompleted"/>
+                </Grid>
+            </Frame>
+        </StackLayout>
+
+        <!-- ══════════════════════════════════════
+             CONTENIDO
+             ══════════════════════════════════════ -->
+        <ScrollView Grid.Row="2">
+            <StackLayout Padding="14,6,14,12" Spacing="10">
+
+                <!-- ── PANEL 1: Escanear tarima origen ── -->
+                <Frame x:Name="PanelScanOrigen"
+                       BackgroundColor="White" CornerRadius="16"
+                       Padding="16" HasShadow="True">
+                    <StackLayout Spacing="12">
+                        <StackLayout Orientation="Horizontal" Spacing="10">
+                            <Frame BackgroundColor="#EEF2FF" CornerRadius="10"
+                                   WidthRequest="36" HeightRequest="36"
+                                   Padding="0" HasShadow="False">
+                                <Label Text="📥" FontSize="18"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center"/>
+                            </Frame>
+                            <StackLayout Spacing="1" VerticalOptions="Center">
+                                <Label Text="TARIMA ORIGEN"
+                                       TextColor="#4C51BF" FontSize="11"
+                                       FontAttributes="Bold" CharacterSpacing="1"/>
+                                <Label Text="Escanea el QR de la tarima a desmantelar"
+                                       TextColor="#9CA3AF" FontSize="11"/>
+                            </StackLayout>
+                        </StackLayout>
+
+                        <Frame BackgroundColor="#F8FAFF" CornerRadius="12"
+                               Padding="12,10" HasShadow="False"
+                               BorderColor="#C7D2FE">
+                            <Entry x:Name="QrOrigenEntry"
+                                   Placeholder="Escanear QR tarima origen..."
+                                   PlaceholderColor="#9CA3AF"
+                                   TextColor="#1F2937" FontSize="14"
+                                   Keyboard="Numeric" ReturnType="Done"
+                                   Completed="OnQrOrigenCompleted"/>
+                        </Frame>
+
+                        <Button Text="Buscar tarima"
+                                BackgroundColor="#4C51BF" TextColor="White"
+                                CornerRadius="12" HeightRequest="44"
+                                FontSize="13" FontAttributes="Bold"
+                                Clicked="OnBuscarOrigenClicked"/>
+                    </StackLayout>
+                </Frame>
+
+                <!-- ── PANEL: Tarima vacía ── -->
+                <Frame x:Name="PanelTarimaVacia"
+                       IsVisible="False"
+                       BackgroundColor="White" CornerRadius="16"
+                       Padding="20" HasShadow="True">
+                    <StackLayout Spacing="14">
+                        <StackLayout Spacing="8" HorizontalOptions="Center">
+                            <Frame BackgroundColor="#FEF2F2" CornerRadius="28"
+                                   WidthRequest="56" HeightRequest="56"
+                                   Padding="10" HasShadow="False"
+                                   HorizontalOptions="Center">
+                                <Image Source="tarima.png"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"/>
+                            </Frame>
+                            <Label x:Name="TarimaVaciaInfoLabel"
+                                   TextColor="#1F2937" FontSize="13"
+                                   FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center"/>
+                            <Label Text="Esta tarima no tiene productos asignados."
+                                   TextColor="#6B7280" FontSize="12"
+                                   HorizontalTextAlignment="Center"/>
+                        </StackLayout>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <Button Grid.Column="0" Text="Cancelar"
+                                    BackgroundColor="Transparent" TextColor="#6B7280"
+                                    BorderColor="#E5E7EB" BorderWidth="1"
+                                    CornerRadius="12" HeightRequest="44" FontSize="13"
+                                    Clicked="OnCambiarOrigenClicked"/>
+                            <Button Grid.Column="1" Text="🗑  Eliminar"
+                                    BackgroundColor="#EF4444" TextColor="White"
+                                    CornerRadius="12" HeightRequest="44"
+                                    FontSize="13" FontAttributes="Bold"
+                                    Clicked="OnEliminarTarimaClicked"/>
+                        </Grid>
+                    </StackLayout>
+                </Frame>
+
+                <!-- ── PANEL 3: Lista de productos ── -->
+                <Frame x:Name="PanelProductos"
+                       IsVisible="False"
+                       BackgroundColor="White" CornerRadius="16"
+                       Padding="14" HasShadow="True">
+                    <StackLayout Spacing="10">
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackLayout Grid.Column="0" Spacing="1">
+                                <Label Text="Productos en tarima"
+                                       TextColor="#1F2937" FontSize="13"
+                                       FontAttributes="Bold"/>
+                                <Label x:Name="ContadorLabel"
+                                       TextColor="#6B7280" FontSize="11"/>
+                            </StackLayout>
+                            <Frame Grid.Column="1"
+                                   BackgroundColor="#EEF2FF" CornerRadius="8"
+                                   Padding="10,4" HasShadow="False">
+                                <Label x:Name="ContadorBadge"
+                                       TextColor="#4C51BF" FontSize="12"
+                                       FontAttributes="Bold"
+                                       VerticalOptions="Center"/>
+                            </Frame>
+                        </Grid>
+
+                        <BoxView HeightRequest="1" Color="#F1F5F9"/>
+
+                        <!-- Lista dinámica -->
+                        <StackLayout x:Name="ProductosLayout" Spacing="6"/>
+
+                    </StackLayout>
+                </Frame>
+
+            </StackLayout>
+        </ScrollView>
+
+        <!-- Loading overlay (encima de la zona superior y del ScrollView) -->
+        <ContentView Grid.Row="1" Grid.RowSpan="2"
+                     x:Name="LoadingOverlay"
+                     IsVisible="False"
+                     BackgroundColor="#B0FFFFFF">
+            <Frame BackgroundColor="White" CornerRadius="16"
+                   Padding="28,22" HasShadow="True"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   WidthRequest="200">
+                <StackLayout Spacing="14" HorizontalOptions="Center">
+                    <ActivityIndicator IsRunning="True"
+                                       Color="#4C51BF"
+                                       HeightRequest="40" WidthRequest="40"
+                                       HorizontalOptions="Center"/>
+                    <Label Text="Cargando tarima..."
+                           TextColor="#374151" FontSize="13"
+                           FontAttributes="Bold"
+                           HorizontalTextAlignment="Center"/>
+                </StackLayout>
+            </Frame>
+        </ContentView>
+
+        <!-- ══════════════════════════════════════
+             BARRA INFERIOR: solo aparece con productos seleccionados
+             ══════════════════════════════════════ -->
+        <StackLayout Grid.Row="3"
+                     x:Name="BottomArea"
+                     IsVisible="False"
+                     Spacing="0"
+                     BackgroundColor="White">
+
+            <BoxView HeightRequest="1" Color="#CBD5E1"/>
+
+            <StackLayout Padding="12,8">
+                <!-- Sin destino: invita a tocar el ícono de tarima -->
+                <Frame x:Name="SeleccionadosAviso"
+                       IsVisible="False"
+                       BackgroundColor="#FFFBEB" CornerRadius="10"
+                       BorderColor="#FCD34D"
+                       Padding="12,10" HasShadow="False">
+                    <Frame.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnAbrirDestinoTapped"/>
+                    </Frame.GestureRecognizers>
+                    <Label x:Name="SeleccionadosLabel"
+                           TextColor="#92400E" FontSize="12"
+                           FontAttributes="Bold"
+                           HorizontalTextAlignment="Center"/>
+                </Frame>
+
+                <Button x:Name="BtnConfirmar"
+                        IsVisible="False"
+                        BackgroundColor="#4C51BF" TextColor="White"
+                        CornerRadius="12" HeightRequest="48"
+                        FontSize="14" FontAttributes="Bold"
+                        Clicked="OnConfirmarClicked"/>
+            </StackLayout>
+        </StackLayout>
+
+        <!-- ══════════════════════════════════════
+             VENTANA: Escanear tarima destino
+             ══════════════════════════════════════ -->
+        <ContentView Grid.Row="0" Grid.RowSpan="4"
+                     x:Name="DestinoOverlay"
+                     IsVisible="False"
+                     BackgroundColor="#99111827">
+            <ContentView.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnCerrarDestinoTapped"/>
+            </ContentView.GestureRecognizers>
+
+            <Frame BackgroundColor="White" CornerRadius="20"
+                   Padding="20" HasShadow="True"
+                   Margin="20,0"
+                   VerticalOptions="Center">
+                <!-- Evita que tocar dentro de la ventana la cierre -->
+                <Frame.GestureRecognizers>
+                    <TapGestureRecognizer/>
+                </Frame.GestureRecognizers>
+                <Grid>
+                <!-- Paso 1: escanear destino -->
+                <StackLayout x:Name="PasoEscanearDestino" Spacing="14">
+                    <Frame BackgroundColor="#FCD34D" CornerRadius="16"
+                           WidthRequest="64" HeightRequest="64"
+                           Padding="10" HasShadow="False"
+                           HorizontalOptions="Center">
+                        <Image Source="tarima.png"/>
+                    </Frame>
+                    <StackLayout Spacing="2">
+                        <Label Text="Escanea la tarima destino"
+                               TextColor="#1F2937" FontSize="17"
+                               FontAttributes="Bold"
+                               HorizontalTextAlignment="Center"/>
+                        <Label x:Name="DestinoOverlaySubLabel"
+                               TextColor="#6B7280" FontSize="12"
+                               HorizontalTextAlignment="Center"/>
+                    </StackLayout>
+
+                    <Frame BackgroundColor="#FFFBEB" CornerRadius="12"
+                           Padding="12,6" HasShadow="False"
+                           BorderColor="#F59E0B">
+                        <Entry x:Name="QrDestinoEntry"
+                               Placeholder="QR tarima destino..."
+                               PlaceholderColor="#B45309"
+                               TextColor="#78350F" FontSize="16"
+                               FontAttributes="Bold"
+                               HorizontalTextAlignment="Center"
+                               Keyboard="Numeric"
+                               ReturnType="Done"
+                               Completed="OnQrDestinoCompleted"/>
+                    </Frame>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Button Grid.Column="0" Text="Cancelar"
+                                BackgroundColor="Transparent" TextColor="#6B7280"
+                                BorderColor="#E5E7EB" BorderWidth="1"
+                                CornerRadius="12" HeightRequest="44" FontSize="13"
+                                Clicked="OnCerrarDestinoTapped"/>
+                        <Button Grid.Column="1" Text="Aceptar"
+                                BackgroundColor="#D97706" TextColor="White"
+                                CornerRadius="12" HeightRequest="44"
+                                FontSize="13" FontAttributes="Bold"
+                                Clicked="OnBuscarDestinoClicked"/>
+                    </Grid>
+                </StackLayout>
+
+                <!-- Paso 2: resumen y confirmación del traslado -->
+                <StackLayout x:Name="PasoConfirmarTraslado" IsVisible="False" Spacing="12">
+                    <Label Text="Se trasladará"
+                           TextColor="#6B7280" FontSize="12"
+                           FontAttributes="Bold" CharacterSpacing="1"
+                           HorizontalTextAlignment="Center"/>
+
+                    <!-- Origen → Destino -->
+                    <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="8">
+                        <Frame Grid.Column="0"
+                               BackgroundColor="#EEF2FF" CornerRadius="12"
+                               Padding="8,10" HasShadow="False">
+                            <StackLayout Spacing="0">
+                                <Label Text="ORIGEN" TextColor="#6366F1"
+                                       FontSize="9" FontAttributes="Bold"
+                                       HorizontalTextAlignment="Center"/>
+                                <Label x:Name="ResumenOrigenLabel"
+                                       TextColor="#3730A3" FontSize="18"
+                                       FontAttributes="Bold"
+                                       HorizontalTextAlignment="Center"/>
+                            </StackLayout>
+                        </Frame>
+                        <Label Grid.Column="1" Text="➜"
+                               TextColor="#D97706" FontSize="24"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center"/>
+                        <Frame Grid.Column="2"
+                               BackgroundColor="#FEF3C7" CornerRadius="12"
+                               BorderColor="#F59E0B"
+                               Padding="8,10" HasShadow="False">
+                            <StackLayout Spacing="0">
+                                <Label Text="DESTINO" TextColor="#B45309"
+                                       FontSize="9" FontAttributes="Bold"
+                                       HorizontalTextAlignment="Center"/>
+                                <Label x:Name="ResumenDestinoLabel"
+                                       TextColor="#78350F" FontSize="18"
+                                       FontAttributes="Bold"
+                                       HorizontalTextAlignment="Center"/>
+                            </StackLayout>
+                        </Frame>
+                    </Grid>
+
+                    <Label x:Name="ResumenOtroPedidoLabel"
+                           IsVisible="False"
+                           TextColor="#B45309" FontSize="11"
+                           FontAttributes="Bold"
+                           HorizontalTextAlignment="Center"/>
+
+                    <!-- Productos a trasladar -->
+                    <Frame BackgroundColor="#F9FAFB" CornerRadius="12"
+                           Padding="10,8" HasShadow="False">
+                        <StackLayout Spacing="6">
+                            <Label x:Name="ResumenCantidadLabel"
+                                   TextColor="#1F2937" FontSize="12"
+                                   FontAttributes="Bold"/>
+                            <ScrollView x:Name="ResumenProductosScroll">
+                                <StackLayout x:Name="ResumenProductosLayout" Spacing="4"/>
+                            </ScrollView>
+                        </StackLayout>
+                    </Frame>
+
+                    <Button Text="✔ Confirmar traslado"
+                            BackgroundColor="#4C51BF" TextColor="White"
+                            CornerRadius="12" HeightRequest="50"
+                            FontSize="15" FontAttributes="Bold"
+                            Clicked="OnConfirmarDesdeOverlayClicked"/>
+                    <Button Text="Cancelar"
+                            BackgroundColor="Transparent" TextColor="#6B7280"
+                            BorderColor="#E5E7EB" BorderWidth="1"
+                            CornerRadius="12" HeightRequest="44" FontSize="13"
+                            Clicked="OnCerrarDestinoTapped"/>
+                </StackLayout>
+                </Grid>
+            </Frame>
+        </ContentView>
+
+    </Grid>
+</ContentPage>

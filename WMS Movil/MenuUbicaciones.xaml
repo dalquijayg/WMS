@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WMS_Movil.MenuUbicaciones"
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="#f8f9fa">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Frame Grid.Row="0"
+               BackgroundColor="#4c51bf"
+               CornerRadius="0"
+               Padding="12,10"
+               HasShadow="True">
+            <Grid ColumnDefinitions="Auto,*">
+                <Button Grid.Column="0"
+                        Text="←"
+                        TextColor="White"
+                        BackgroundColor="Transparent"
+                        FontSize="22"
+                        WidthRequest="44"
+                        HeightRequest="44"
+                        Padding="0"
+                        Clicked="OnVolverClicked"/>
+                <StackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                    <Label Text="Gestión de Ubicaciones"
+                           TextColor="White"
+                           FontSize="16"
+                           FontAttributes="Bold"/>
+                    <Label Text="Bodega · Inventario físico"
+                           TextColor="#c7d2fe"
+                           FontSize="11"/>
+                </StackLayout>
+            </Grid>
+        </Frame>
+
+        <!-- Contenido -->
+        <ScrollView Grid.Row="1">
+            <StackLayout Padding="15,16" Spacing="14">
+
+                <!-- Descripción del módulo -->
+                <Frame BackgroundColor="#EEF2FF"
+                       CornerRadius="10"
+                       Padding="14,12"
+                       HasShadow="False"
+                       BorderColor="#c7d2fe">
+                    <StackLayout Orientation="Horizontal" Spacing="12">
+                        <Label Text="🏭" FontSize="28" VerticalOptions="Center"/>
+                        <StackLayout Spacing="3" VerticalOptions="Center">
+                            <Label Text="Inventario por Ubicación"
+                                   TextColor="#4c51bf"
+                                   FontSize="13"
+                                   FontAttributes="Bold"/>
+                            <Label Text="Registra y consulta el stock de cada rack, pasillo, bloque y nivel de la bodega."
+                                   TextColor="#5a67d8"
+                                   FontSize="11"
+                                   LineBreakMode="WordWrap"/>
+                        </StackLayout>
+                    </StackLayout>
+                </Frame>
+
+                <Label Text="OPCIONES"
+                       TextColor="#a0aec0"
+                       FontSize="10"
+                       FontAttributes="Bold"
+                       Margin="2,4,0,0"
+                       CharacterSpacing="1.2"/>
+
+                <!-- Opción: Registrar Producto en Ubicación -->
+                <Frame BackgroundColor="White"
+                       CornerRadius="12"
+                       Padding="0"
+                       HasShadow="True">
+                    <Frame.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnRegistrarProductoClicked"/>
+                    </Frame.GestureRecognizers>
+                    <Grid ColumnDefinitions="Auto,*,Auto" Padding="14,16">
+                        <Frame Grid.Column="0"
+                               BackgroundColor="#F0FFF4"
+                               CornerRadius="12"
+                               Padding="0"
+                               HasShadow="False"
+                               WidthRequest="56"
+                               HeightRequest="56"
+                               VerticalOptions="Center">
+                            <Label Text="📦"
+                                   FontSize="26"
+                                   HorizontalTextAlignment="Center"
+                                   VerticalTextAlignment="Center"/>
+                        </Frame>
+                        <StackLayout Grid.Column="1" Spacing="5" Margin="14,0" VerticalOptions="Center">
+                            <Label Text="Registrar Producto"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   TextColor="#1a202c"/>
+                            <Label Text="Escanea el QR del rack y registra los productos con su existencia de fardos y unidades."
+                                   FontSize="11"
+                                   TextColor="#718096"
+                                   LineBreakMode="WordWrap"/>
+                        </StackLayout>
+                        <Label Grid.Column="2"
+                               Text="›"
+                               TextColor="#4c51bf"
+                               FontSize="28"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center"
+                               Margin="0,0,4,0"/>
+                    </Grid>
+                </Frame>
+
+                <!-- Opción: Consultar Producto -->
+                <Frame BackgroundColor="White"
+                       CornerRadius="12"
+                       Padding="0"
+                       HasShadow="True">
+                    <Frame.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnConsultarProductoClicked"/>
+                    </Frame.GestureRecognizers>
+                    <Grid ColumnDefinitions="Auto,*,Auto" Padding="14,16">
+                        <Frame Grid.Column="0"
+                               BackgroundColor="#EEF2FF"
+                               CornerRadius="12"
+                               Padding="0"
+                               HasShadow="False"
+                               WidthRequest="56"
+                               HeightRequest="56"
+                               VerticalOptions="Center">
+                            <Label Text="🔍"
+                                   FontSize="26"
+                                   HorizontalTextAlignment="Center"
+                                   VerticalTextAlignment="Center"/>
+                        </Frame>
+                        <StackLayout Grid.Column="1" Spacing="5" Margin="14,0" VerticalOptions="Center">
+                            <Label Text="Consultar Producto"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   TextColor="#1a202c"/>
+                            <Label Text="Busca un producto y ve en qué ubicaciones de la bodega se encuentra."
+                                   FontSize="11"
+                                   TextColor="#718096"
+                                   LineBreakMode="WordWrap"/>
+                        </StackLayout>
+                        <Label Grid.Column="2"
+                               Text="›"
+                               TextColor="#4c51bf"
+                               FontSize="28"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center"
+                               Margin="0,0,4,0"/>
+                    </Grid>
+                </Frame>
+
+            </StackLayout>
+        </ScrollView>
+    </Grid>
+
+</ContentPage>

@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WMS_Movil.ConsultarProducto"
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="#F1F5F9">
+
+    <AbsoluteLayout>
+
+        <Grid AbsoluteLayout.LayoutBounds="0,0,1,1"
+              AbsoluteLayout.LayoutFlags="All"
+              RowDefinitions="Auto,*">
+
+            <!-- ══════════════════════════════════════
+                 HERO
+                 ══════════════════════════════════════ -->
+            <Grid Grid.Row="0">
+                <BoxView Color="#4C51BF"/>
+                <BoxView Color="#5558C8" CornerRadius="80"
+                         WidthRequest="160" HeightRequest="160"
+                         HorizontalOptions="End" VerticalOptions="Start"
+                         TranslationX="60" TranslationY="-60"/>
+                <BoxView Color="#3D42B0" CornerRadius="45"
+                         WidthRequest="90" HeightRequest="90"
+                         HorizontalOptions="Start" VerticalOptions="End"
+                         TranslationX="-30" TranslationY="30"/>
+
+                <StackLayout Padding="0,6,0,18" Spacing="10">
+                    <Grid ColumnDefinitions="Auto,*" Padding="4,4,16,0">
+                        <Button Grid.Column="0"
+                                Text="←"
+                                TextColor="White"
+                                BackgroundColor="Transparent"
+                                FontSize="22"
+                                WidthRequest="44" HeightRequest="44"
+                                Padding="0"
+                                Clicked="OnVolverClicked"/>
+                        <StackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                            <Label Text="Consultar Producto"
+                                   TextColor="White"
+                                   FontSize="16"
+                                   FontAttributes="Bold"/>
+                            <Label Text="Escanee el UPC del producto"
+                                   TextColor="#C7D2FE"
+                                   FontSize="11"/>
+                        </StackLayout>
+                    </Grid>
+
+                    <!-- Campo de escaneo -->
+                    <Frame BackgroundColor="White"
+                           CornerRadius="14" Padding="14,8"
+                           HasShadow="False" Margin="16,0">
+                        <Grid ColumnDefinitions="Auto,*">
+                            <Label Grid.Column="0"
+                                   Text="⌕" FontSize="22"
+                                   TextColor="#9CA3AF"
+                                   VerticalOptions="Center"
+                                   Margin="0,0,8,0"/>
+                            <Entry Grid.Column="1"
+                                   x:Name="UpcEntry"
+                                   Placeholder="Escanee o ingrese el UPC"
+                                   TextColor="#1E2235"
+                                   PlaceholderColor="#9CA3AF"
+                                   FontSize="14"
+                                   HeightRequest="40"
+                                   ReturnType="Done"
+                                   Completed="OnUpcCompleted"/>
+                        </Grid>
+                    </Frame>
+                </StackLayout>
+            </Grid>
+
+            <!-- ══════════════════════════════════════
+                 CONTENIDO
+                 ══════════════════════════════════════ -->
+            <ScrollView Grid.Row="1">
+                <StackLayout Spacing="0" Padding="0,0,0,24">
+
+                    <!-- Tarjeta info del producto -->
+                    <Frame x:Name="PanelProducto"
+                           IsVisible="False"
+                           BackgroundColor="White"
+                           CornerRadius="20"
+                           Padding="18,16"
+                           Margin="16,14,16,0"
+                           HasShadow="True">
+                        <StackLayout Spacing="12">
+                            <Label Text="PRODUCTO"
+                                   TextColor="#9CA3AF"
+                                   FontSize="9"
+                                   FontAttributes="Bold"
+                                   CharacterSpacing="1.2"/>
+                            <Label x:Name="DescLabel"
+                                   Text=""
+                                   TextColor="#111827"
+                                   FontSize="15"
+                                   FontAttributes="Bold"
+                                   LineBreakMode="WordWrap"/>
+
+                            <!-- Chips de datos -->
+                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                                <Frame Grid.Column="0"
+                                       BackgroundColor="#EEF2FF"
+                                       CornerRadius="10" Padding="10,8" HasShadow="False">
+                                    <StackLayout Spacing="2">
+                                        <Label Text="UPC"
+                                               TextColor="#9CA3AF"
+                                               FontSize="9"
+                                               FontAttributes="Bold"
+                                               CharacterSpacing="0.5"/>
+                                        <Label x:Name="UpcLabel"
+                                               Text=""
+                                               TextColor="#4C51BF"
+                                               FontSize="11"
+                                               FontAttributes="Bold"
+                                               LineBreakMode="TailTruncation"/>
+                                    </StackLayout>
+                                </Frame>
+                                <Frame Grid.Column="1"
+                                       BackgroundColor="#F3F0FF"
+                                       CornerRadius="10" Padding="10,8" HasShadow="False">
+                                    <StackLayout Spacing="2">
+                                        <Label Text="UPC PAQUETE"
+                                               TextColor="#9CA3AF"
+                                               FontSize="9"
+                                               FontAttributes="Bold"
+                                               CharacterSpacing="0.5"/>
+                                        <Label x:Name="UpcPaqueteLabel"
+                                               Text=""
+                                               TextColor="#7C3AED"
+                                               FontSize="11"
+                                               FontAttributes="Bold"
+                                               LineBreakMode="TailTruncation"/>
+                                    </StackLayout>
+                                </Frame>
+                                <Frame Grid.Column="2"
+                                       BackgroundColor="#FFF7ED"
+                                       CornerRadius="10" Padding="10,8" HasShadow="False">
+                                    <StackLayout Spacing="2">
+                                        <Label Text="UND/PAQUETE"
+                                               TextColor="#9CA3AF"
+                                               FontSize="9"
+                                               FontAttributes="Bold"
+                                               CharacterSpacing="0.5"/>
+                                        <Label x:Name="CantPaqueteLabel"
+                                               Text=""
+                                               TextColor="#D97706"
+                                               FontSize="14"
+                                               FontAttributes="Bold"
+                                               HorizontalTextAlignment="Center"/>
+                                    </StackLayout>
+                                </Frame>
+                            </Grid>
+                        </StackLayout>
+                    </Frame>
+
+                    <!-- Sección de ubicaciones -->
+                    <StackLayout x:Name="PanelUbicaciones"
+                                 IsVisible="False"
+                                 Padding="16,14,16,0"
+                                 Spacing="0">
+
+                        <Label Text="UBICACIONES CON EXISTENCIA"
+                               TextColor="#9CA3AF"
+                               FontSize="9"
+                               FontAttributes="Bold"
+                               CharacterSpacing="1.5"
+                               Margin="2,0,0,10"/>
+
+                        <CollectionView x:Name="UbicacionesCollection"
+                                        SelectionMode="None"
+                                        VerticalScrollBarVisibility="Never">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Frame Margin="0,0,0,10"
+                                           CornerRadius="16"
+                                           BackgroundColor="White"
+                                           HasShadow="True"
+                                           Padding="16,14">
+                                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                                            <StackLayout Grid.Column="0" Spacing="3" VerticalOptions="Center">
+                                                <Label Text="{Binding Codigo}"
+                                                       TextColor="#111827"
+                                                       FontSize="16"
+                                                       FontAttributes="Bold"/>
+                                                <Label Text="{Binding Detalle}"
+                                                       TextColor="#9CA3AF"
+                                                       FontSize="11"/>
+                                            </StackLayout>
+                                            <Frame Grid.Column="1"
+                                                   BackgroundColor="#EEF2FF"
+                                                   CornerRadius="12" Padding="12,8"
+                                                   HasShadow="False"
+                                                   VerticalOptions="Center">
+                                                <StackLayout Spacing="1" HorizontalOptions="Center">
+                                                    <Label Text="{Binding ExistenciaFardo, StringFormat='{0:0}'}"
+                                                           TextColor="#4C51BF"
+                                                           FontSize="18"
+                                                           FontAttributes="Bold"
+                                                           HorizontalTextAlignment="Center"/>
+                                                    <Label Text="fardos"
+                                                           TextColor="#818CF8"
+                                                           FontSize="9"
+                                                           HorizontalTextAlignment="Center"/>
+                                                </StackLayout>
+                                            </Frame>
+                                            <Frame Grid.Column="2"
+                                                   BackgroundColor="#F0FDF4"
+                                                   CornerRadius="12" Padding="12,8"
+                                                   HasShadow="False"
+                                                   VerticalOptions="Center">
+                                                <StackLayout Spacing="1" HorizontalOptions="Center">
+                                                    <Label Text="{Binding ExistenciaUnidad, StringFormat='{0:0}'}"
+                                                           TextColor="#059669"
+                                                           FontSize="18"
+                                                           FontAttributes="Bold"
+                                                           HorizontalTextAlignment="Center"/>
+                                                    <Label Text="unidades"
+                                                           TextColor="#6EE7B7"
+                                                           FontSize="9"
+                                                           HorizontalTextAlignment="Center"/>
+                                                </StackLayout>
+                                            </Frame>
+                                        </Grid>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+
+                        <!-- Sin existencias -->
+                        <Frame x:Name="SinUbicacionesPanel"
+                               IsVisible="False"
+                               BackgroundColor="White"
+                               CornerRadius="16"
+                               Padding="20,24"
+                               HasShadow="False">
+                            <StackLayout HorizontalOptions="Center" Spacing="8">
+                                <Label Text="📦"
+                                       FontSize="36"
+                                       HorizontalTextAlignment="Center"/>
+                                <Label Text="Sin existencias en bodega"
+                                       TextColor="#9CA3AF"
+                                       FontSize="13"
+                                       HorizontalTextAlignment="Center"/>
+                            </StackLayout>
+                        </Frame>
+
+                    </StackLayout>
+
+                </StackLayout>
+            </ScrollView>
+
+        </Grid>
+
+        <!-- ══════════════════════════════════════
+             LOADING OVERLAY
+             ══════════════════════════════════════ -->
+        <Grid x:Name="LoadingOverlay"
+              IsVisible="False"
+              BackgroundColor="#CC000000"
+              AbsoluteLayout.LayoutBounds="0,0,1,1"
+              AbsoluteLayout.LayoutFlags="All"
+              InputTransparent="False">
+            <Frame BackgroundColor="White"
+                   CornerRadius="20" Padding="30,24"
+                   HasShadow="True"
+                   VerticalOptions="Center" HorizontalOptions="Center"
+                   WidthRequest="200">
+                <StackLayout Spacing="14" HorizontalOptions="Center">
+                    <ActivityIndicator IsRunning="True"
+                                       Color="#4C51BF"
+                                       WidthRequest="40" HeightRequest="40"
+                                       HorizontalOptions="Center"/>
+                    <Label Text="Buscando..."
+                           TextColor="#111827"
+                           FontSize="14"
+                           FontAttributes="Bold"
+                           HorizontalTextAlignment="Center"/>
+                </StackLayout>
+            </Frame>
+        </Grid>
+
+    </AbsoluteLayout>
+</ContentPage>
