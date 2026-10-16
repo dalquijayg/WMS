@@ -738,7 +738,7 @@
                         </StackLayout>
                     </Frame>
 
-                    <!-- Opción: entregar -->
+                    <!-- Sigue sola a la tarjeta NFC; tocar adelanta -->
                     <Frame BackgroundColor="#D97706"
                            CornerRadius="14"
                            Padding="14,12" HasShadow="False">
@@ -746,13 +746,13 @@
                             <TapGestureRecognizer Tapped="OnHojaCompletadaEntregarTapped"/>
                         </Frame.GestureRecognizers>
                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" InputTransparent="True">
-                            <Label Grid.Column="0" Text="📦" FontSize="22"
+                            <Label Grid.Column="0" Text="📶" FontSize="22"
                                    VerticalOptions="Center"/>
                             <StackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
-                                <Label Text="Entregar tarima"
+                                <Label Text="Prepare la tarjeta NFC"
                                        TextColor="White" FontSize="15"
                                        FontAttributes="Bold"/>
-                                <Label Text="Después se configura su tarjeta NFC"
+                                <Label Text="Se pedirá en un momento para identificar la tarima"
                                        TextColor="#FEF3C7" FontSize="11"/>
                             </StackLayout>
                         </Grid>

@@ -24,12 +24,20 @@ namespace WMS_Movil
             => throw new NotImplementedException();
     }
 
+    // Rechequeo + embalaje: cada producto que se rechequea (✓ o ✗) se pone en la tarima de
+    // embalaje escogida (TarimasEmbalaje) en la misma transacción. Ver Servicio/EmbalajeTarimas.
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class DetalleHojarechequeo : ContentPage
     {
+        private readonly int idTarima;
         private readonly int idPedido;
         private readonly int numeroTarima;
         private List<DetalleProducto> todosLosProductos = new List<DetalleProducto>();
+
+        private int? idSucursal;
+        private string nombreSucursal = "";
+        private TarimaEmbalaje _tarimaEmbalaje;   // destino; null = se escoge o se crea al confirmar
+        private bool _destinoInicializado;
 
         // RevisadoOk: null = sin revisar, true = marcado como bien (✓), false = marcado como mal (✗).
         // Se guarda en la tabla TarimasRechequeadas al tocar cualquiera de los dos botones.
@@ -37,6 +45,7 @@ namespace WMS_Movil
         {
             public string Upc { get; set; }
             public string UpcUnidad { get; set; }
+            public int NoHoja { get; set; }
             public string Descripcion { get; set; }
             public int CantidadSolicitada { get; set; }
             public int CantidadConfirmada { get; set; }
@@ -120,20 +129,30 @@ namespace WMS_Movil
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        public DetalleHojarechequeo(int idPedido, int? numeroTarima)
+        public DetalleHojarechequeo(int idTarima, int idPedido, int numeroTarima)
         {
             InitializeComponent();
+            this.idTarima = idTarima;
             this.idPedido = idPedido;
-            this.numeroTarima = numeroTarima ?? 0;
+            this.numeroTarima = numeroTarima;
 
             InfoPedidoLabel.Text = $"Pedido #{idPedido}  •  Tarima #{this.numeroTarima}";
+            ActualizarPanelDestino();
         }
 
         protected override void OnAppearing()
         {
             base.OnAppearing();
-            CargarInfoPedido();
+            _ = CargarInfoYDestinoAsync();
             CargarProductos();
+        }
+
+        private async Task CargarInfoYDestinoAsync()
+        {
+            await CargarInfoPedido();
+            if (_destinoInicializado) return;
+            _destinoInicializado = true;
+            await InicializarDestinoAsync();
         }
 
         private string BuildConnectionString() =>
@@ -144,7 +163,7 @@ namespace WMS_Movil
             await Navigation.PopAsync();
         }
 
-        private async void CargarInfoPedido()
+        private async Task CargarInfoPedido()
         {
             try
             {
@@ -157,7 +176,8 @@ namespace WMS_Movil
                     {
                         connection.Open();
                         using (var cmd = new MySqlCommand(@"
-                            SELECT pb.NombreEmpresa, COALESCE(dep.Nombre, '') AS NombreDepartamento
+                            SELECT pb.NombreEmpresa, COALESCE(dep.Nombre, '') AS NombreDepartamento,
+                                   pb.IdSucursal, COALESCE(pb.NombreSucursales, '') AS NombreSucursal
                             FROM pedidostienda_bodega pb
                             LEFT JOIN departamentos dep ON pb.Departamento = dep.Id
                             WHERE pb.IdPedidos = @IdPedido
@@ -171,6 +191,9 @@ namespace WMS_Movil
                                     nombreEmpresa = reader.IsDBNull(reader.GetOrdinal("NombreEmpresa"))
                                         ? "" : reader.GetString("NombreEmpresa");
                                     nombreDepartamento = reader.GetString("NombreDepartamento");
+                                    idSucursal = reader.IsDBNull(reader.GetOrdinal("IdSucursal"))
+                                        ? (int?)null : Convert.ToInt32(reader["IdSucursal"]);
+                                    nombreSucursal = reader.GetString("NombreSucursal");
                                 }
                             }
                         }
@@ -215,6 +238,7 @@ namespace WMS_Movil
                                 COALESCE(d.CantConfirmada, 0) AS CantidadConfirmada,
                                 d.Observaciones,
                                 d.NoTarima,
+                                d.NoHoja,
                                 d.IdUsuariopreparo,
                                 COALESCE(u.NombreCompleto, '') AS NombreUsuarioPreparo
                             FROM detallepedidostienda_bodega d
@@ -237,6 +261,7 @@ namespace WMS_Movil
                                     {
                                         Upc = reader.GetString("UPC"),
                                         UpcUnidad = reader.GetString("UpcUnidad"),
+                                        NoHoja = Convert.ToInt32(reader["NoHoja"]),
                                         CantidadUniFardo = Convert.ToDecimal(reader["CantidadUniFardo"]),
                                         Descripcion = reader.IsDBNull(reader.GetOrdinal("Descripcion"))
                                             ? "" : reader.GetString("Descripcion"),
@@ -390,7 +415,7 @@ namespace WMS_Movil
             LoadingOverlay.IsVisible = true;
             try
             {
-                await GuardarRechequeo(producto, producto.CantidadConfirmada, "");
+                if (!await GuardarRechequeo(producto, producto.CantidadConfirmada, "")) return;
                 producto.CantidadEncontrada = producto.CantidadConfirmada;
                 producto.Comentario = "";
                 producto.RevisadoOk = true;
@@ -453,7 +478,7 @@ namespace WMS_Movil
             LoadingOverlay.IsVisible = true;
             try
             {
-                await GuardarRechequeo(producto, cantidadEncontrada, comentario.Trim());
+                if (!await GuardarRechequeo(producto, cantidadEncontrada, comentario.Trim())) return;
                 producto.CantidadEncontrada = cantidadEncontrada;
                 producto.Comentario = comentario.Trim();
                 producto.RevisadoOk = false;
@@ -583,81 +608,321 @@ namespace WMS_Movil
         }
 
         // ══════════════════════════════════════
-        // GUARDAR EN TarimasRechequeadas (insert o update)
+        // TARIMA DE EMBALAJE (destino)
         // ══════════════════════════════════════
 
-        private async Task GuardarRechequeo(DetalleProducto producto, int cantidadChequeada, string observacion)
+        private void ActualizarPanelDestino()
+        {
+            Device.BeginInvokeOnMainThread(() =>
+            {
+                if (_tarimaEmbalaje != null)
+                {
+                    DestinoCodigoLabel.Text = $"Tarima {_tarimaEmbalaje.Codigo}";
+                    DestinoDetalleLabel.Text = string.Join("  •  ", new[]
+                    {
+                        nombreSucursal,
+                        $"{_tarimaEmbalaje.CantidadSkus} SKU",
+                        $"{_tarimaEmbalaje.CantidadFardos} fardos"
+                    }.Where(s => !string.IsNullOrWhiteSpace(s)));
+                    CerrarDestinoButton.IsVisible = true;
+                }
+                else
+                {
+                    DestinoCodigoLabel.Text = "Sin tarima escogida";
+                    DestinoDetalleLabel.Text = "Se escoge o se crea al confirmar el primer producto";
+                    CerrarDestinoButton.IsVisible = false;
+                }
+            });
+        }
+
+        private Task<List<TarimaEmbalaje>> ListarAbiertasAsync() => Task.Run(() =>
+        {
+            using (var connection = new MySqlConnection(BuildConnectionString()))
+            {
+                connection.Open();
+                return EmbalajeTarimas.ListarAbiertas(connection, idSucursal.Value);
+            }
+        });
+
+        // Al entrar: si la sucursal ya tiene tarimas embalando, se escoge una (o una nueva);
+        // si no tiene, la tarima 1 se crea al confirmar el primer producto.
+        private async Task InicializarDestinoAsync()
+        {
+            if (!idSucursal.HasValue) return;
+            try
+            {
+                var abiertas = await ListarAbiertasAsync();
+                if (abiertas.Count > 0)
+                    await EscogerDeListaAsync(abiertas, "¿En qué tarima de embalaje vas a poner los productos?");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", "Error al cargar las tarimas de embalaje: " + ex.Message, "OK");
+            }
+        }
+
+        // Antes de guardar un producto: asegura que haya destino (lo crea si la sucursal no tiene
+        // ninguna tarima embalando). Devuelve false si el usuario no escogió ninguna.
+        private async Task<bool> AsegurarDestinoAsync()
+        {
+            if (_tarimaEmbalaje != null) return true;
+            if (!idSucursal.HasValue)
+            {
+                await DisplayAlert("Sin sucursal", $"El pedido #{idPedido} no tiene sucursal; no se puede embalar.", "OK");
+                return false;
+            }
+
+            var abiertas = await ListarAbiertasAsync();
+            if (abiertas.Count == 0)
+                return await CrearDestinoAsync();
+            return await EscogerDeListaAsync(abiertas, "¿En qué tarima de embalaje va este producto?");
+        }
+
+        private async Task<bool> EscogerDeListaAsync(List<TarimaEmbalaje> abiertas, string titulo)
+        {
+            const string nueva = "+ Nueva tarima";
+            var opciones = abiertas
+                .Select(t => $"{t.Codigo}  •  {t.CantidadSkus} SKU  •  {t.CantidadFardos} fardos")
+                .Concat(new[] { nueva })
+                .ToArray();
+
+            string eleccion = await DisplayActionSheet(titulo, "Cancelar", null, opciones);
+            if (eleccion == null || eleccion == "Cancelar") return false;
+            if (eleccion == nueva) return await CrearDestinoAsync();
+
+            _tarimaEmbalaje = abiertas[Array.IndexOf(opciones, eleccion)];
+            ActualizarPanelDestino();
+            return true;
+        }
+
+        private async Task<bool> CrearDestinoAsync()
+        {
+            try
+            {
+                var nueva = await Task.Run(() =>
+                {
+                    using (var connection = new MySqlConnection(BuildConnectionString()))
+                    {
+                        connection.Open();
+                        using (var transaction = connection.BeginTransaction())
+                        {
+                            var t = EmbalajeTarimas.CrearTarima(connection, transaction, idSucursal.Value,
+                                App.IdUsuarioActual, App.NombreUsuarioActual);
+                            transaction.Commit();
+                            return t;
+                        }
+                    }
+                });
+                _tarimaEmbalaje = nueva;
+                ActualizarPanelDestino();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", "No se pudo crear la tarima de embalaje: " + ex.Message, "OK");
+                return false;
+            }
+        }
+
+        private async void OnCambiarDestinoClicked(object sender, EventArgs e)
+        {
+            if (!idSucursal.HasValue) return;
+            try
+            {
+                var abiertas = await ListarAbiertasAsync();
+                await EscogerDeListaAsync(abiertas, "Cambiar tarima de embalaje");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", "Error al cargar las tarimas de embalaje: " + ex.Message, "OK");
+            }
+        }
+
+        // Cualquier rechequeador puede cerrarla (Estado 2): ya no se le meten ni quitan productos.
+        private async void OnCerrarDestinoClicked(object sender, EventArgs e)
+        {
+            var tarima = _tarimaEmbalaje;
+            if (tarima == null) return;
+
+            bool confirmar = await DisplayAlert("Cerrar tarima",
+                $"¿Cerrar la tarima {tarima.Codigo}?\n\nYa no se podrán meter ni quitar productos.",
+                "Sí, cerrar", "Cancelar");
+            if (!confirmar) return;
+
+            LoadingOverlay.IsVisible = true;
+            try
+            {
+                await Task.Run(() =>
+                {
+                    using (var connection = new MySqlConnection(BuildConnectionString()))
+                    {
+                        connection.Open();
+                        using (var transaction = connection.BeginTransaction())
+                        {
+                            EmbalajeTarimas.CerrarTarima(connection, transaction, tarima.IdTarimaEmbalada, App.IdUsuarioActual);
+                            transaction.Commit();
+                        }
+                    }
+                });
+                _tarimaEmbalaje = null;
+                ActualizarPanelDestino();
+                LoadingOverlay.IsVisible = false;
+                await DisplayAlert("Tarima cerrada", $"La tarima {tarima.Codigo} quedó embalada.", "OK");
+            }
+            catch (TarimaEmbalajeCerradaException ex)
+            {
+                _tarimaEmbalaje = null;
+                ActualizarPanelDestino();
+                LoadingOverlay.IsVisible = false;
+                await DisplayAlert("Tarima cerrada", ex.Message, "OK");
+            }
+            catch (Exception ex)
+            {
+                LoadingOverlay.IsVisible = false;
+                await DisplayAlert("Error", ex.Message, "OK");
+            }
+            finally
+            {
+                LoadingOverlay.IsVisible = false;
+            }
+        }
+
+        // ══════════════════════════════════════
+        // GUARDAR: TarimasRechequeadas + embalaje, en una sola transacción
+        // ══════════════════════════════════════
+
+        // Devuelve false si no se guardó porque el usuario no escogió tarima de embalaje.
+        // Si la tarima escogida la cerró otro usuario, pide otra y reintenta.
+        private async Task<bool> GuardarRechequeo(DetalleProducto producto, int cantidadChequeada, string observacion)
         {
             int idUsuarioActual = App.IdUsuarioActual;
             string nombreUsuarioActual = App.NombreUsuarioActual ?? "";
 
+            LoadingOverlay.IsVisible = false;
+            if (!await AsegurarDestinoAsync()) return false;
+            LoadingOverlay.IsVisible = true;
+
             await TomarTarimaParaRechequeo();
 
-            await Task.Run(() =>
+            var embalar = new ProductoAEmbalar
             {
-                using (var connection = new MySqlConnection(BuildConnectionString()))
+                IdTarima = idTarima,
+                IdPedido = idPedido,
+                NoHoja = producto.NoHoja,
+                Upc = producto.Upc,
+                UpcUnidad = producto.UpcUnidad,
+                CantidadConfirmada = producto.CantidadConfirmada
+            };
+
+            while (true)
+            {
+                int idTarimaEmbalada = _tarimaEmbalaje.IdTarimaEmbalada;
+                try
                 {
-                    connection.Open();
-
-                    int? idExistente = null;
-                    using (var cmdBuscar = new MySqlCommand(@"
-                        SELECT IdRechequeo FROM TarimasRechequeadas
-                        WHERE IdPedido = @IdPedido AND NoTarima = @NoTarima AND UpcPaquete = @UpcPaquete
-                        LIMIT 1", connection))
+                    _tarimaEmbalaje = await Task.Run(() =>
                     {
-                        cmdBuscar.Parameters.AddWithValue("@IdPedido", idPedido);
-                        cmdBuscar.Parameters.AddWithValue("@NoTarima", numeroTarima);
-                        cmdBuscar.Parameters.AddWithValue("@UpcPaquete", producto.Upc);
-                        var res = cmdBuscar.ExecuteScalar();
-                        if (res != null && res != DBNull.Value)
-                            idExistente = Convert.ToInt32(res);
-                    }
-
-                    if (idExistente.HasValue)
-                    {
-                        using (var cmdUpdate = new MySqlCommand(@"
-                            UPDATE TarimasRechequeadas SET
-                                UpcUnidad = @UpcUnidad,
-                                Descripcion = @Descripcion,
-                                CantidadUniFardo = @CantidadUniFardo,
-                                CantidadPreparada = @CantidadPreparada,
-                                CantidadChequeada = @CantidadChequeada,
-                                IdUsuarioPreparo = @IdUsuarioPreparo,
-                                NombreUsuarioPreparo = @NombreUsuarioPreparo,
-                                IdUsuarioChequeo = @IdUsuarioChequeo,
-                                NombreUsuarioChequeo = @NombreUsuarioChequeo,
-                                FechahoraChequeo = NOW(),
-                                Observacion = @Observacion
-                            WHERE IdRechequeo = @IdRechequeo", connection))
+                        using (var connection = new MySqlConnection(BuildConnectionString()))
                         {
-                            AgregarParametrosComunes(cmdUpdate, producto, cantidadChequeada, observacion,
-                                idUsuarioActual, nombreUsuarioActual);
-                            cmdUpdate.Parameters.AddWithValue("@IdRechequeo", idExistente.Value);
-                            cmdUpdate.ExecuteNonQuery();
+                            connection.Open();
+                            using (var transaction = connection.BeginTransaction())
+                            {
+                                try
+                                {
+                                    // Si ya estaba rechequeado (y embalado) solo se actualiza el rechequeo
+                                    bool yaRechequeado = GuardarEnTarimasRechequeadas(connection, transaction, producto,
+                                        cantidadChequeada, observacion, idUsuarioActual, nombreUsuarioActual);
+                                    if (!yaRechequeado)
+                                        EmbalajeTarimas.EmbalarProducto(connection, transaction, idTarimaEmbalada,
+                                            embalar, idUsuarioActual);
+
+                                    transaction.Commit();
+                                }
+                                catch
+                                {
+                                    transaction.Rollback();
+                                    throw;
+                                }
+                            }
+                            return EmbalajeTarimas.Leer(connection, null, idTarimaEmbalada);
                         }
-                    }
-                    else
-                    {
-                        using (var cmdInsert = new MySqlCommand(@"
-                            INSERT INTO TarimasRechequeadas
-                                (UpcPaquete, UpcUnidad, Descripcion, CantidadUniFardo, CantidadPreparada,
-                                 CantidadChequeada, IdPedido, NoTarima, IdUsuarioPreparo, NombreUsuarioPreparo,
-                                 IdUsuarioChequeo, NombreUsuarioChequeo, FechahoraChequeo, Observacion)
-                            VALUES
-                                (@UpcPaquete, @UpcUnidad, @Descripcion, @CantidadUniFardo, @CantidadPreparada,
-                                 @CantidadChequeada, @IdPedido, @NoTarima, @IdUsuarioPreparo, @NombreUsuarioPreparo,
-                                 @IdUsuarioChequeo, @NombreUsuarioChequeo, NOW(), @Observacion)", connection))
-                        {
-                            cmdInsert.Parameters.AddWithValue("@UpcPaquete", producto.Upc);
-                            AgregarParametrosComunes(cmdInsert, producto, cantidadChequeada, observacion,
-                                idUsuarioActual, nombreUsuarioActual);
-                            cmdInsert.Parameters.AddWithValue("@IdPedido", idPedido);
-                            cmdInsert.Parameters.AddWithValue("@NoTarima", numeroTarima);
-                            cmdInsert.ExecuteNonQuery();
-                        }
-                    }
+                    });
+                    ActualizarPanelDestino();
+                    return true;
                 }
-            });
+                catch (TarimaEmbalajeCerradaException ex)
+                {
+                    _tarimaEmbalaje = null;
+                    ActualizarPanelDestino();
+                    LoadingOverlay.IsVisible = false;
+                    await DisplayAlert("Tarima cerrada", ex.Message + "\nEscoja otra tarima para este producto.", "OK");
+                    if (!await AsegurarDestinoAsync()) return false;
+                    LoadingOverlay.IsVisible = true;
+                }
+            }
+        }
+
+        // Inserta o actualiza el rechequeo del producto. Devuelve true si ya existía.
+        private bool GuardarEnTarimasRechequeadas(MySqlConnection connection, MySqlTransaction transaction,
+            DetalleProducto producto, int cantidadChequeada, string observacion,
+            int idUsuarioActual, string nombreUsuarioActual)
+        {
+            int? idExistente = null;
+            using (var cmdBuscar = new MySqlCommand(@"
+                SELECT IdRechequeo FROM TarimasRechequeadas
+                WHERE IdPedido = @IdPedido AND NoTarima = @NoTarima AND UpcPaquete = @UpcPaquete
+                LIMIT 1 FOR UPDATE", connection, transaction))
+            {
+                cmdBuscar.Parameters.AddWithValue("@IdPedido", idPedido);
+                cmdBuscar.Parameters.AddWithValue("@NoTarima", numeroTarima);
+                cmdBuscar.Parameters.AddWithValue("@UpcPaquete", producto.Upc);
+                var res = cmdBuscar.ExecuteScalar();
+                if (res != null && res != DBNull.Value)
+                    idExistente = Convert.ToInt32(res);
+            }
+
+            if (idExistente.HasValue)
+            {
+                using (var cmdUpdate = new MySqlCommand(@"
+                    UPDATE TarimasRechequeadas SET
+                        UpcUnidad = @UpcUnidad,
+                        Descripcion = @Descripcion,
+                        CantidadUniFardo = @CantidadUniFardo,
+                        CantidadPreparada = @CantidadPreparada,
+                        CantidadChequeada = @CantidadChequeada,
+                        IdUsuarioPreparo = @IdUsuarioPreparo,
+                        NombreUsuarioPreparo = @NombreUsuarioPreparo,
+                        IdUsuarioChequeo = @IdUsuarioChequeo,
+                        NombreUsuarioChequeo = @NombreUsuarioChequeo,
+                        FechahoraChequeo = NOW(),
+                        Observacion = @Observacion
+                    WHERE IdRechequeo = @IdRechequeo", connection, transaction))
+                {
+                    AgregarParametrosComunes(cmdUpdate, producto, cantidadChequeada, observacion,
+                        idUsuarioActual, nombreUsuarioActual);
+                    cmdUpdate.Parameters.AddWithValue("@IdRechequeo", idExistente.Value);
+                    cmdUpdate.ExecuteNonQuery();
+                }
+                return true;
+            }
+
+            using (var cmdInsert = new MySqlCommand(@"
+                INSERT INTO TarimasRechequeadas
+                    (UpcPaquete, UpcUnidad, Descripcion, CantidadUniFardo, CantidadPreparada,
+                     CantidadChequeada, IdPedido, NoTarima, IdUsuarioPreparo, NombreUsuarioPreparo,
+                     IdUsuarioChequeo, NombreUsuarioChequeo, FechahoraChequeo, Observacion)
+                VALUES
+                    (@UpcPaquete, @UpcUnidad, @Descripcion, @CantidadUniFardo, @CantidadPreparada,
+                     @CantidadChequeada, @IdPedido, @NoTarima, @IdUsuarioPreparo, @NombreUsuarioPreparo,
+                     @IdUsuarioChequeo, @NombreUsuarioChequeo, NOW(), @Observacion)", connection, transaction))
+            {
+                cmdInsert.Parameters.AddWithValue("@UpcPaquete", producto.Upc);
+                AgregarParametrosComunes(cmdInsert, producto, cantidadChequeada, observacion,
+                    idUsuarioActual, nombreUsuarioActual);
+                cmdInsert.Parameters.AddWithValue("@IdPedido", idPedido);
+                cmdInsert.Parameters.AddWithValue("@NoTarima", numeroTarima);
+                cmdInsert.ExecuteNonQuery();
+            }
+            return false;
         }
 
         private void AgregarParametrosComunes(MySqlCommand cmd, DetalleProducto producto,

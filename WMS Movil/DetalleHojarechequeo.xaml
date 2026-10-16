@@ -148,6 +148,65 @@
                 </Frame>
 
                 <!-- ══════════════════════════════════════
+                     TARIMA DE EMBALAJE (destino de lo que se rechequea)
+                     ══════════════════════════════════════ -->
+                <Frame BackgroundColor="White"
+                       CornerRadius="18"
+                       Padding="14,12"
+                       HasShadow="True"
+                       Margin="16,12,16,0">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                        <Frame Grid.Column="0"
+                               BackgroundColor="#FCD34D"
+                               CornerRadius="12"
+                               WidthRequest="44" HeightRequest="44"
+                               Padding="8" HasShadow="False"
+                               VerticalOptions="Center">
+                            <Image Source="tarima.png"/>
+                        </Frame>
+                        <StackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                            <Label Text="EMBALANDO EN"
+                                   TextColor="#B45309"
+                                   FontSize="10"
+                                   FontAttributes="Bold"
+                                   CharacterSpacing="1"/>
+                            <Label x:Name="DestinoCodigoLabel"
+                                   TextColor="#1E2235"
+                                   FontSize="17"
+                                   FontAttributes="Bold"/>
+                            <Label x:Name="DestinoDetalleLabel"
+                                   TextColor="#6B7280"
+                                   FontSize="11"
+                                   LineBreakMode="WordWrap"/>
+                        </StackLayout>
+                        <StackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
+                            <Button Text="Cambiar"
+                                    BackgroundColor="#EEF2FF"
+                                    TextColor="#4C51BF"
+                                    FontSize="11"
+                                    FontAttributes="Bold"
+                                    CornerRadius="10"
+                                    HeightRequest="34"
+                                    Padding="12,0"
+                                    Clicked="OnCambiarDestinoClicked"/>
+                            <Button x:Name="CerrarDestinoButton"
+                                    Text="Cerrar"
+                                    BackgroundColor="#FFF7ED"
+                                    TextColor="#C2410C"
+                                    BorderColor="#FDBA74"
+                                    BorderWidth="1"
+                                    FontSize="11"
+                                    FontAttributes="Bold"
+                                    CornerRadius="10"
+                                    HeightRequest="34"
+                                    Padding="12,0"
+                                    IsVisible="False"
+                                    Clicked="OnCerrarDestinoClicked"/>
+                        </StackLayout>
+                    </Grid>
+                </Frame>
+
+                <!-- ══════════════════════════════════════
                      CONTENIDO
                      ══════════════════════════════════════ -->
                 <StackLayout Padding="16,14,16,10" Spacing="14">

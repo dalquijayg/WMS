@@ -7,14 +7,17 @@
 
     <!-- Configurar la tarjeta NFC de una tarima. Obligatorio: no se cierra
          hasta grabar el IdTarima (salvo "Cancelar entrega" si se permite). -->
+    <!-- El Grid deja que la tarjeta crezca cuando aparece el error (un Frame
+         centrado directo en el ScrollView no se vuelve a medir y lo corta) -->
     <ScrollView>
-        <Frame BackgroundColor="White"
+        <Grid Padding="20,40" VerticalOptions="FillAndExpand">
+        <Frame x:Name="TarjetaFrame"
+               BackgroundColor="White"
                CornerRadius="22"
                Padding="20"
-               Margin="20,40"
                HasShadow="True"
                VerticalOptions="Center">
-            <StackLayout Spacing="14">
+            <StackLayout x:Name="ContenidoStack" Spacing="14">
 
                 <Frame x:Name="IconoFrame"
                        BackgroundColor="#E0E7FF"
@@ -74,11 +77,17 @@
                 <Frame x:Name="ErrorFrame"
                        IsVisible="False"
                        BackgroundColor="#FEE2E2"
+                       BorderColor="#FCA5A5"
                        CornerRadius="12"
                        Padding="12,10" HasShadow="False">
-                    <Label x:Name="ErrorLabel"
-                           TextColor="#B91C1C" FontSize="12"
-                           LineBreakMode="WordWrap"/>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <Label Grid.Column="0" Text="⛔" FontSize="18"
+                               VerticalOptions="Start"/>
+                        <Label Grid.Column="1" x:Name="ErrorLabel"
+                               TextColor="#B91C1C" FontSize="13"
+                               FontAttributes="Bold"
+                               LineBreakMode="WordWrap"/>
+                    </Grid>
                 </Frame>
 
                 <Button x:Name="ActivarButton"
@@ -105,5 +114,6 @@
 
             </StackLayout>
         </Frame>
+        </Grid>
     </ScrollView>
 </ContentPage>

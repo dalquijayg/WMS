@@ -1,5 +1,7 @@
 using MySqlConnector;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using WMS_Movil.Servicio;
@@ -9,8 +11,9 @@ using Xamarin.Forms.Xaml;
 
 namespace WMS_Movil
 {
-    // Graba el IdTarima en una tarjeta NFC (borrando lo que tuviera) y, si la tarima
-    // aún no estaba entregada, la entrega en la BD. El pendiente se guarda en el
+    // Graba el IdTarima en una tarjeta NFC (borrando lo que tuviera), guarda el UID
+    // de la tarjeta en TarimasInventario.IUD y, si la tarima aún no estaba
+    // entregada, la entrega en la BD. El pendiente se guarda en el
     // teléfono: si se cierra la app, Home vuelve a mostrar esta página.
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class ConfigurarTarjetaNfcPage : ContentPage
@@ -30,7 +33,9 @@ namespace WMS_Movil
 
             TarimaTituloLabel.Text = pendiente.YaEntregada ? "TARIMA ENTREGADA" : "TARIMA A ENTREGAR";
             TarimaLabel.Text = $"Tarima #{pendiente.NoTarima}  ·  Id {pendiente.IdTarima}";
-            PedidoLabel.Text = $"Pedido #{pendiente.IdPedido} - Hoja #{pendiente.NoHoja}";
+            PedidoLabel.Text = pendiente.NoHoja > 0
+                ? $"Pedido #{pendiente.IdPedido} - Hoja #{pendiente.NoHoja}"
+                : $"Pedido #{pendiente.IdPedido}";
             ProgresoLabel.Text = progreso ?? "";
             ProgresoLabel.IsVisible = !string.IsNullOrEmpty(progreso);
             CancelarButton.IsVisible = pendiente.PermiteCancelar && !pendiente.YaEntregada;
@@ -53,7 +58,8 @@ namespace WMS_Movil
             return configurada;
         }
 
-        // Pendientes que quedaron de una sesión anterior (la app se cerró a medias).
+        // Pendientes que quedaron de una sesión anterior (la app se cerró a medias): los
+        // guardados en el teléfono y las tarimas del usuario entregadas sin tarjeta en la BD.
         public static async Task ProcesarPendientesAsync(INavigation navegacion)
         {
             if (_procesandoPendientes) return;
@@ -64,6 +70,17 @@ namespace WMS_Movil
             try
             {
                 var pendientes = TarjetasNfcPendientes.Leer();
+                try
+                {
+                    var sinTarjeta = await Task.Run(() => LeerTarimasEntregadasSinTarjeta(App.IdUsuarioActual));
+                    pendientes.AddRange(sinTarjeta.Where(t => !pendientes.Any(p => p.IdTarima == t.IdTarima)));
+                }
+                catch (Exception ex)
+                {
+                    // Sin conexión: se revisa de nuevo la próxima vez que se entre a Home
+                    System.Diagnostics.Debug.WriteLine($"Error leyendo tarimas sin tarjeta: {ex.Message}");
+                }
+
                 for (int i = 0; i < pendientes.Count; i++)
                     await ConfigurarAsync(navegacion, pendientes[i],
                         pendientes.Count > 1 ? $"Tarjeta {i + 1} de {pendientes.Count}" : null);
@@ -138,15 +155,24 @@ namespace WMS_Movil
                 CancelarButton.IsEnabled = false;
                 try
                 {
-                    // Si la tarjeta es de otra tarima que aún no se rechequea, no se puede reutilizar
-                    if (int.TryParse(tarjeta.Texto, out int idTarimaAnterior) && idTarimaAnterior != _pendiente.IdTarima)
+                    // La tarjeta solo se puede reutilizar cuando su tarima terminó el rechequeo
+                    // (EstadoChequeo = 1). Se busca por el IdTarima grabado y por el UID.
+                    string ocupada;
+                    try
                     {
-                        string ocupada = await Task.Run(() => DescribirTarimaSinRechequear(idTarimaAnterior));
-                        if (ocupada != null)
-                        {
-                            MostrarError($"Esta tarjeta pertenece a la {ocupada}, que aún no se rechequea. Use otra tarjeta.");
-                            continue;
-                        }
+                        int? idTarimaGrabada = int.TryParse(tarjeta.Texto, out int id) ? id : (int?)null;
+                        ocupada = await Task.Run(() =>
+                            DescribirTarimaQueUsaLaTarjeta(idTarimaGrabada, tarjeta.Uid, _pendiente.IdTarima));
+                    }
+                    catch (Exception ex)
+                    {
+                        MostrarError("No se pudo verificar la tarjeta: " + ex.Message + "\nVuelva a acercarla para reintentar.");
+                        continue;
+                    }
+                    if (ocupada != null)
+                    {
+                        MostrarError($"Esta tarjeta pertenece a la {ocupada}, que aún no termina el rechequeo. Use otra tarjeta.");
+                        continue;
                     }
 
                     MostrarEstado("⏳", "Grabando… no retire la tarjeta");
@@ -161,20 +187,19 @@ namespace WMS_Movil
                         continue;
                     }
 
-                    if (!_pendiente.YaEntregada)
+                    MostrarEstado("⏳", _pendiente.YaEntregada ? "Registrando tarjeta…" : "Entregando tarima…");
+                    try
                     {
-                        MostrarEstado("⏳", "Entregando tarima…");
-                        try
-                        {
-                            await Task.Run(EntregarTarima);
-                        }
-                        catch (Exception ex)
-                        {
-                            MostrarError("La tarjeta quedó grabada, pero no se pudo entregar la tarima: " + ex.Message +
-                                "\nVuelva a acercar la tarjeta para reintentar.");
-                            MostrarEstado("📶", "Acerque la tarjeta al teléfono y manténgala quieta");
-                            continue;
-                        }
+                        await Task.Run(() => RegistrarTarjetaYEntregar(tarjeta.Uid));
+                    }
+                    catch (Exception ex)
+                    {
+                        MostrarError((_pendiente.YaEntregada
+                                ? "La tarjeta quedó grabada, pero no se pudo registrar en la tarima: "
+                                : "La tarjeta quedó grabada, pero no se pudo entregar la tarima: ") + ex.Message +
+                            "\nVuelva a acercar la tarjeta para reintentar.");
+                        MostrarEstado("📶", "Acerque la tarjeta al teléfono y manténgala quieta");
+                        continue;
                     }
                 }
                 finally
@@ -214,36 +239,99 @@ namespace WMS_Movil
         private static string BuildConnectionString() =>
             $"Server={Preferences.Get("ip_address", "")};Database={Preferences.Get("selected_database", "")};User ID={Preferences.Get("username", "")};Password={Preferences.Get("password", "")};";
 
-        private void EntregarTarima()
+        // Guarda el UID de la tarjeta en la tarima (TarimasInventario.IUD) y, si aún
+        // no estaba entregada, la entrega en la misma transacción.
+        private void RegistrarTarjetaYEntregar(string uid)
         {
             using (var connection = new MySqlConnection(BuildConnectionString()))
             {
                 connection.Open();
                 using (var transaction = connection.BeginTransaction())
                 {
-                    RepartoTarimas.EntregarTarima(connection, transaction, _pendiente.IdTarima);
+                    using (var cmd = new MySqlCommand(
+                        "UPDATE TarimasInventario SET IUD = @Uid WHERE IdTarima = @IdTarima", connection, transaction))
+                    {
+                        cmd.Parameters.AddWithValue("@Uid", uid);
+                        cmd.Parameters.AddWithValue("@IdTarima", _pendiente.IdTarima);
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    if (!_pendiente.YaEntregada)
+                        RepartoTarimas.EntregarTarima(connection, transaction, _pendiente.IdTarima);
+
                     transaction.Commit();
                 }
             }
         }
 
-        // "Tarima #N del Pedido #P" si la tarima existe y no ha terminado su rechequeo; null si no.
-        private static string DescribirTarimaSinRechequear(int idTarima)
+        // Tarimas del usuario ya entregadas (FechaFinalizacion) que no tienen tarjeta (IUD vacío)
+        // y no han terminado el rechequeo (EstadoChequeo <> 1). NoHoja es la primera hoja con productos en la tarima (0 si
+        // solo tiene productos repartidos).
+        private static List<PendienteNfc> LeerTarimasEntregadasSinTarjeta(int idUsuario)
+        {
+            var lista = new List<PendienteNfc>();
+            using (var connection = new MySqlConnection(BuildConnectionString()))
+            {
+                connection.Open();
+                using (var cmd = new MySqlCommand(@"
+                    SELECT ti.IdTarima, ti.NoTarima, ti.IdPedido,
+                           COALESCE((SELECT MIN(d.NoHoja) FROM detallepedidostienda_bodega d
+                                     WHERE d.IdConsolidado = ti.IdPedido AND d.NoTarima = ti.NoTarima), 0) AS NoHoja
+                    FROM TarimasInventario ti
+                    WHERE ti.IdUsuario = @IdUsuario
+                      AND ti.FechaFinalizacion IS NOT NULL
+                      AND (ti.IUD IS NULL OR ti.IUD = '')
+                      AND COALESCE(ti.EstadoChequeo, 0) <> 1
+                    ORDER BY ti.IdPedido, ti.NoTarima", connection))
+                {
+                    cmd.Parameters.AddWithValue("@IdUsuario", idUsuario);
+                    using (var r = cmd.ExecuteReader())
+                    {
+                        while (r.Read())
+                        {
+                            lista.Add(new PendienteNfc
+                            {
+                                IdTarima = Convert.ToInt32(r["IdTarima"]),
+                                NoTarima = Convert.ToInt32(r["NoTarima"]),
+                                IdPedido = Convert.ToInt32(r["IdPedido"]),
+                                NoHoja = Convert.ToInt32(r["NoHoja"]),
+                                YaEntregada = true,
+                                PermiteCancelar = false
+                            });
+                        }
+                    }
+                }
+            }
+            return lista;
+        }
+
+        // Otra tarima que todavía usa la tarjeta (grabada con su IdTarima o con su UID en IUD)
+        // y no ha terminado el rechequeo (EstadoChequeo <> 1):
+        // "Tarima #N del Pedido #P (Inventario #I)". null si la tarjeta está disponible.
+        private static string DescribirTarimaQueUsaLaTarjeta(int? idTarimaGrabada, string uid, int idTarimaActual)
         {
             using (var connection = new MySqlConnection(BuildConnectionString()))
             {
                 connection.Open();
                 using (var cmd = new MySqlCommand(@"
-                    SELECT IdPedido, NoTarima FROM TarimasInventario
-                    WHERE IdTarima = @IdTarima
-                      AND FechaHoraFin IS NULL
-                      AND COALESCE(EstadoChequeo, 0) <> 1", connection))
+                    SELECT IdPedido, NoTarima, IdInventario FROM TarimasInventario
+                    WHERE IdTarima <> @IdTarimaActual
+                      AND (IdTarima = @IdTarimaGrabada OR (@Uid <> '' AND IUD = @Uid))
+                      AND COALESCE(EstadoChequeo, 0) <> 1
+                    ORDER BY IdTarima DESC
+                    LIMIT 1", connection))
                 {
-                    cmd.Parameters.AddWithValue("@IdTarima", idTarima);
+                    cmd.Parameters.AddWithValue("@IdTarimaActual", idTarimaActual);
+                    cmd.Parameters.AddWithValue("@IdTarimaGrabada", (object)idTarimaGrabada ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@Uid", uid ?? "");
                     using (var r = cmd.ExecuteReader())
-                        return r.Read()
-                            ? $"Tarima #{Convert.ToInt32(r["NoTarima"])} del Pedido #{Convert.ToInt32(r["IdPedido"])}"
-                            : null;
+                    {
+                        if (!r.Read()) return null;
+                        string inventario = r.IsDBNull(r.GetOrdinal("IdInventario"))
+                            ? "sin inventario"
+                            : $"Inventario #{Convert.ToInt32(r["IdInventario"])}";
+                        return $"Tarima #{Convert.ToInt32(r["NoTarima"])} del Pedido #{Convert.ToInt32(r["IdPedido"])} ({inventario})";
+                    }
                 }
             }
         }
@@ -259,6 +347,9 @@ namespace WMS_Movil
         {
             ErrorLabel.Text = mensaje ?? "";
             ErrorFrame.IsVisible = !string.IsNullOrEmpty(mensaje);
+            // Xamarin no siempre vuelve a medir la tarjeta al mostrar/ocultar el error
+            ContenidoStack.ForceLayout();
+            TarjetaFrame.ForceLayout();
             if (!string.IsNullOrEmpty(mensaje))
                 try { Vibration.Vibrate(400); } catch { }
         }

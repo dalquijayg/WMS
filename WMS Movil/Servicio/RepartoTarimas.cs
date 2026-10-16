@@ -107,21 +107,6 @@ namespace WMS_Movil.Servicio
                 ? EtiquetaRegex.Replace(observaciones, Etiqueta(partes), 1)
                 : ArmarObservaciones(partes, observaciones);
 
-        // Mueve lo que había en la tarima origen a la destino (sumando si la destino ya tenía).
-        public static List<ParteTarima> Trasladar(IEnumerable<ParteTarima> partes, int noTarimaOrigen, int noTarimaDestino)
-        {
-            var resultado = partes.Select(p => new ParteTarima
-            {
-                NoTarima = p.NoTarima == noTarimaOrigen ? noTarimaDestino : p.NoTarima,
-                Cantidad = p.Cantidad
-            });
-            return resultado
-                .GroupBy(p => p.NoTarima)
-                .Select(g => new ParteTarima { NoTarima = g.Key, Cantidad = g.Sum(p => p.Cantidad) })
-                .OrderBy(p => p.NoTarima)
-                .ToList();
-        }
-
         // Igual que la renumeración de TarimasInventario al eliminar una tarima vacía.
         public static List<ParteTarima> Renumerar(IEnumerable<ParteTarima> partes, int noTarimaEliminada) =>
             partes.Select(p => new ParteTarima
@@ -252,22 +237,6 @@ namespace WMS_Movil.Servicio
             return (skus, fardos);
         }
 
-        public static void RecalcularTarima(MySqlConnection conn, MySqlTransaction tr, int idTarima, int idPedido, int noTarima)
-        {
-            var (skus, fardos) = ContarSkusYFardos(conn, tr, idPedido, noTarima);
-
-            using (var cmd = new MySqlCommand(@"
-                UPDATE TarimasInventario
-                SET CantidadSkus = @Skus, CantidadFardos = @Fardos
-                WHERE IdTarima = @IdTarima", conn, tr))
-            {
-                cmd.Parameters.AddWithValue("@Skus", skus);
-                cmd.Parameters.AddWithValue("@Fardos", fardos);
-                cmd.Parameters.AddWithValue("@IdTarima", idTarima);
-                cmd.ExecuteNonQuery();
-            }
-        }
-
         // ─────────────────────────────────────────
         // ENTREGA Y ELIMINACIÓN DE TARIMAS
         // ─────────────────────────────────────────
@@ -361,160 +330,6 @@ namespace WMS_Movil.Servicio
                 if (res == null || res == DBNull.Value) return null;
                 int id = Convert.ToInt32(res);
                 return id > 0 ? id : (int?)null;
-            }
-        }
-
-        // Inventario de la tarima y su estado (0 = abierto). Ambos null si la tarima aún no tiene inventario.
-        // Con bloquear = true se bloquea el inventario hasta el fin de la transacción.
-        public static (int? IdInventario, int? Estado) LeerEstadoInventarioTarima(
-            MySqlConnection conn, MySqlTransaction tr, int idTarima, bool bloquear = false)
-        {
-            using (var cmd = new MySqlCommand($@"
-                SELECT i.idInventarios, COALESCE(i.Estado, 0) AS Estado
-                FROM TarimasInventario ti
-                INNER JOIN inventarios i ON i.idInventarios = ti.IdInventario
-                WHERE ti.IdTarima = @IdTarima
-                {(bloquear ? "FOR UPDATE" : "")}", conn, tr))
-            {
-                cmd.Parameters.AddWithValue("@IdTarima", idTarima);
-                using (var r = cmd.ExecuteReader())
-                {
-                    if (!r.Read()) return (null, null);
-                    return (Convert.ToInt32(r["idInventarios"]), Convert.ToInt32(r["Estado"]));
-                }
-            }
-        }
-
-        // Lanza excepción si el inventario de la tarima ya no está en estado 0 (ya fue confirmado).
-        public static void ValidarInventarioAbierto(MySqlConnection conn, MySqlTransaction tr, int idTarima, int noTarima)
-        {
-            var (idInventario, estado) = LeerEstadoInventarioTarima(conn, tr, idTarima, bloquear: true);
-            if (estado.HasValue && estado.Value != 0)
-                throw new Exception(
-                    $"El inventario #{idInventario} de la Tarima #{noTarima} ya está confirmado. No se puede trasladar.");
-        }
-
-        // Crea un inventario con el mismo encabezado que otro y lo asigna a la tarima.
-        private static int CrearInventarioCopia(MySqlConnection conn, MySqlTransaction tr, int idInventarioBase, int idTarima)
-        {
-            int idNuevo;
-            using (var cmd = new MySqlCommand(@"
-                INSERT INTO inventarios (
-                    IdUsuarios, Fecha, FechaHoraI, Operacion, Estado,
-                    IdSucursales, Sucursal, Usuario, IdRazon, NombreRazon, IdDepartamentos
-                )
-                SELECT IdUsuarios, CURDATE(), NOW(), 1, 0,
-                       IdSucursales, Sucursal, Usuario, IdRazon, NombreRazon, IdDepartamentos
-                FROM inventarios WHERE idInventarios = @IdBase;
-                SELECT LAST_INSERT_ID();", conn, tr))
-            {
-                cmd.Parameters.AddWithValue("@IdBase", idInventarioBase);
-                idNuevo = Convert.ToInt32(cmd.ExecuteScalar());
-            }
-
-            using (var cmd = new MySqlCommand(
-                "UPDATE TarimasInventario SET IdInventario = @IdInventario WHERE IdTarima = @IdTarima", conn, tr))
-            {
-                cmd.Parameters.AddWithValue("@IdInventario", idNuevo);
-                cmd.Parameters.AddWithValue("@IdTarima", idTarima);
-                cmd.ExecuteNonQuery();
-            }
-            return idNuevo;
-        }
-
-        // Pasa lo que un producto ocupa en el inventario de la tarima origen al de la tarima destino.
-        // "fardos" es lo que se traslada; el inventario guarda unidades cuando el renglón es de
-        // paquete (DUN14 + UnidadesFardo) y fardos cuando no.
-        public static void MoverProductoEntreInventarios(MySqlConnection conn, MySqlTransaction tr,
-            int idTarimaOrigen, int idTarimaDestino, string upc, string upcProducto, decimal fardos)
-        {
-            if (fardos <= 0) return;
-
-            int? invOrigen = LeerInventarioTarima(conn, tr, idTarimaOrigen);
-            if (!invOrigen.HasValue) return; // tarima sin inventario (datos anteriores)
-
-            int? invDestino = LeerInventarioTarima(conn, tr, idTarimaDestino);
-            if (invDestino == invOrigen) return; // mismo inventario (datos anteriores, por hoja)
-
-            string codigo2 = string.IsNullOrEmpty(upcProducto) ? upc : upcProducto;
-            string upcFila = null, dun14Fila = null;
-            decimal cantidadFila = 0;
-            int unidadesFardo = 0;
-
-            using (var cmd = new MySqlCommand(@"
-                SELECT Upc, DUN14, Cantidad, COALESCE(UnidadesFardo, 0) AS UnidadesFardo
-                FROM detalleinventarios
-                WHERE IdInventarios = @IdInventario
-                  AND (Upc IN (@Codigo1, @Codigo2) OR DUN14 IN (@Codigo1, @Codigo2))
-                LIMIT 1 FOR UPDATE", conn, tr))
-            {
-                cmd.Parameters.AddWithValue("@IdInventario", invOrigen.Value);
-                cmd.Parameters.AddWithValue("@Codigo1", upc);
-                cmd.Parameters.AddWithValue("@Codigo2", codigo2);
-                using (var r = cmd.ExecuteReader())
-                {
-                    if (!r.Read()) return;
-                    upcFila = Convert.ToString(r["Upc"]);
-                    dun14Fila = r.IsDBNull(r.GetOrdinal("DUN14")) ? null : Convert.ToString(r["DUN14"]);
-                    cantidadFila = Convert.ToDecimal(r["Cantidad"]);
-                    unidadesFardo = Convert.ToInt32(r["UnidadesFardo"]);
-                }
-            }
-
-            decimal mover = Math.Min(fardos * (unidadesFardo > 0 ? unidadesFardo : 1), cantidadFila);
-            if (mover <= 0) return;
-
-            if (!invDestino.HasValue)
-                invDestino = CrearInventarioCopia(conn, tr, invOrigen.Value, idTarimaDestino);
-
-            // Primero sumar en destino (el INSERT copia los datos del renglón origen)
-            int filas;
-            using (var cmd = new MySqlCommand(@"
-                UPDATE detalleinventarios SET Cantidad = Cantidad + @Mover
-                WHERE IdInventarios = @Destino AND Upc = @Upc AND DUN14 <=> @DUN14
-                LIMIT 1", conn, tr))
-            {
-                cmd.Parameters.AddWithValue("@Mover", mover);
-                cmd.Parameters.AddWithValue("@Destino", invDestino.Value);
-                cmd.Parameters.AddWithValue("@Upc", upcFila);
-                cmd.Parameters.AddWithValue("@DUN14", (object)dun14Fila ?? DBNull.Value);
-                filas = cmd.ExecuteNonQuery();
-            }
-            if (filas == 0)
-            {
-                using (var cmd = new MySqlCommand(@"
-                    INSERT INTO detalleinventarios (
-                        IdInventarios, DUN14, Upc, Cantidad, UnidadesFardo,
-                        Descripcion, IdProveedor, IdDepartamento, Costo, IdRazonSocial
-                    )
-                    SELECT @Destino, DUN14, Upc, @Mover, UnidadesFardo,
-                           Descripcion, IdProveedor, IdDepartamento, Costo, IdRazonSocial
-                    FROM detalleinventarios
-                    WHERE IdInventarios = @Origen AND Upc = @Upc AND DUN14 <=> @DUN14
-                    LIMIT 1", conn, tr))
-                {
-                    cmd.Parameters.AddWithValue("@Destino", invDestino.Value);
-                    cmd.Parameters.AddWithValue("@Mover", mover);
-                    cmd.Parameters.AddWithValue("@Origen", invOrigen.Value);
-                    cmd.Parameters.AddWithValue("@Upc", upcFila);
-                    cmd.Parameters.AddWithValue("@DUN14", (object)dun14Fila ?? DBNull.Value);
-                    cmd.ExecuteNonQuery();
-                }
-            }
-
-            // Luego restar en origen (si queda en cero, se elimina el renglón)
-            string sqlOrigen = cantidadFila - mover <= 0
-                ? @"DELETE FROM detalleinventarios
-                    WHERE IdInventarios = @Origen AND Upc = @Upc AND DUN14 <=> @DUN14 LIMIT 1"
-                : @"UPDATE detalleinventarios SET Cantidad = Cantidad - @Mover
-                    WHERE IdInventarios = @Origen AND Upc = @Upc AND DUN14 <=> @DUN14 LIMIT 1";
-            using (var cmd = new MySqlCommand(sqlOrigen, conn, tr))
-            {
-                cmd.Parameters.AddWithValue("@Mover", mover);
-                cmd.Parameters.AddWithValue("@Origen", invOrigen.Value);
-                cmd.Parameters.AddWithValue("@Upc", upcFila);
-                cmd.Parameters.AddWithValue("@DUN14", (object)dun14Fila ?? DBNull.Value);
-                cmd.ExecuteNonQuery();
             }
         }
     }

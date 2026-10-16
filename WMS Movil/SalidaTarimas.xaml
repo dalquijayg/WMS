@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WMS_Movil.SalidaTarimas"
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="#F1F5F9">
+
+    <!-- Salida de tarimas embaladas: se escanea la hoja impresa (lleva el IdTarimaEmbalada)
+         y la tarima queda registrada como cargada al camión. -->
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- HEADER -->
+        <Grid Grid.Row="0" HeightRequest="86">
+            <BoxView Color="#4C51BF"/>
+            <BoxView Color="#5558C8" CornerRadius="60"
+                     WidthRequest="120" HeightRequest="120"
+                     HorizontalOptions="End" VerticalOptions="Start"
+                     TranslationX="50" TranslationY="-50"/>
+            <BoxView Color="#3D42B0" CornerRadius="40"
+                     WidthRequest="80" HeightRequest="80"
+                     HorizontalOptions="Start" VerticalOptions="End"
+                     TranslationX="-25" TranslationY="25"/>
+
+            <Grid ColumnDefinitions="Auto,*,Auto"
+                  Padding="14,0" VerticalOptions="Center"
+                  Margin="0,8,0,0">
+                <Frame Grid.Column="0"
+                       BackgroundColor="#3B3FA0" CornerRadius="10"
+                       WidthRequest="36" HeightRequest="36"
+                       Padding="0" HasShadow="False">
+                    <Label Text="←" TextColor="White" FontSize="18"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnBackClicked"/>
+                        </Label.GestureRecognizers>
+                    </Label>
+                </Frame>
+
+                <StackLayout Grid.Column="1" HorizontalOptions="Center"
+                             VerticalOptions="Center" Spacing="1">
+                    <Label Text="Salida de tarimas" TextColor="White"
+                           FontSize="16" FontAttributes="Bold"
+                           HorizontalTextAlignment="Center"/>
+                    <Label Text="Carga al camión"
+                           TextColor="#C7D2FE" FontSize="10"
+                           HorizontalTextAlignment="Center"/>
+                </StackLayout>
+
+                <Frame Grid.Column="2"
+                       BackgroundColor="#FCD34D" CornerRadius="10"
+                       WidthRequest="36" HeightRequest="36"
+                       Padding="5" HasShadow="False">
+                    <Label Text="🚚" FontSize="16"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center"/>
+                </Frame>
+            </Grid>
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <StackLayout Padding="16,14" Spacing="14">
+
+                <!-- ESCANEO -->
+                <Frame BackgroundColor="White" CornerRadius="18"
+                       Padding="16,14" HasShadow="True">
+                    <StackLayout Spacing="10">
+                        <StackLayout Orientation="Horizontal" Spacing="10">
+                            <Frame BackgroundColor="#EEF2FF" CornerRadius="10"
+                                   WidthRequest="36" HeightRequest="36"
+                                   Padding="0" HasShadow="False">
+                                <Label Text="📄" FontSize="16"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center"/>
+                            </Frame>
+                            <StackLayout Spacing="1" VerticalOptions="Center">
+                                <Label Text="ESCANEAR HOJA DE SALIDA"
+                                       TextColor="#4C51BF" FontSize="10"
+                                       FontAttributes="Bold" CharacterSpacing="1"/>
+                                <Label Text="Escanea el código de la hoja impresa de la tarima"
+                                       TextColor="#9CA3AF" FontSize="10"/>
+                            </StackLayout>
+                        </StackLayout>
+
+                        <Frame BackgroundColor="#F8FAFF" CornerRadius="10"
+                               Padding="12,2" HasShadow="False"
+                               BorderColor="#E0E7FF">
+                            <Entry x:Name="CodigoEntry"
+                                   Placeholder="Código de la hoja"
+                                   PlaceholderColor="#9CA3AF"
+                                   TextColor="#1E2235"
+                                   FontSize="13"
+                                   Keyboard="Numeric"
+                                   ReturnType="Done"
+                                   Completed="OnCodigoCompleted"/>
+                        </Frame>
+
+                        <Button Text="Registrar salida"
+                                BackgroundColor="#4C51BF"
+                                TextColor="White"
+                                FontAttributes="Bold"
+                                CornerRadius="12"
+                                HeightRequest="44"
+                                Clicked="OnRegistrarClicked"/>
+                    </StackLayout>
+                </Frame>
+
+                <!-- RESULTADO DEL ÚLTIMO ESCANEO -->
+                <Frame x:Name="ResultadoFrame"
+                       IsVisible="False"
+                       CornerRadius="16"
+                       Padding="14,12"
+                       HasShadow="False">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Label Grid.Column="0" x:Name="ResultadoIconoLabel"
+                               FontSize="26" VerticalOptions="Center"/>
+                        <StackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                            <Label x:Name="ResultadoTituloLabel"
+                                   FontSize="16" FontAttributes="Bold"/>
+                            <Label x:Name="ResultadoDetalleLabel"
+                                   FontSize="12" LineBreakMode="WordWrap"/>
+                        </StackLayout>
+                    </Grid>
+                </Frame>
+
+                <!-- REGISTRADAS EN ESTA SESIÓN -->
+                <Grid ColumnDefinitions="*,Auto" Margin="4,0,0,-6">
+                    <Label Grid.Column="0"
+                           Text="REGISTRADAS AHORA"
+                           TextColor="#94A3B8" FontSize="10"
+                           FontAttributes="Bold" CharacterSpacing="2"/>
+                    <Label Grid.Column="1" x:Name="TotalRegistradasLabel"
+                           Text="0"
+                           TextColor="#94A3B8" FontSize="10"
+                           FontAttributes="Bold"/>
+                </Grid>
+                <StackLayout x:Name="RegistradasLayout" Spacing="8"/>
+
+            </StackLayout>
+        </ScrollView>
+
+        <!-- OVERLAY DE CARGA -->
+        <Grid Grid.RowSpan="2"
+              x:Name="LoadingOverlay"
+              IsVisible="False"
+              BackgroundColor="#80000000">
+            <ActivityIndicator IsRunning="True" Color="White"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"/>
+        </Grid>
+    </Grid>
+</ContentPage>

@@ -260,7 +260,7 @@ namespace WMS_Movil
                     return;
                 }
 
-                await Navigation.PushAsync(new DetalleHojarechequeo(tarima.IdPedido, tarima.NoTarima));
+                await Navigation.PushAsync(new DetalleHojarechequeo(idTarima, tarima.IdPedido, tarima.NoTarima));
             }
             catch (Exception ex)
             {

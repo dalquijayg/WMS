@@ -977,8 +977,8 @@ namespace WMS_Movil
 
         // ─────────────────────────────────────────
         // VERIFICAR HOJA Y CARGAR TARIMA EN USO
-        // El inventario es por hoja (PreparacionPedidos.IdInventario) y se mantiene
-        // aunque se entregue la tarima y se abra otra. Las tarimas no pasan de una
+        // El inventario es por tarima (TarimasInventario.IdInventario): al entregar la
+        // tarima, la siguiente crea el suyo. Las tarimas no pasan de una
         // hoja a otra: al entrar se retoma solo la tarima abierta de esta hoja.
         // Devuelve false si el usuario no puede trabajar esta hoja (la página se cierra).
         // ─────────────────────────────────────────
@@ -998,23 +998,6 @@ namespace WMS_Movil
                              CONCAT('^\\[TARIMAS:([0-9]+=[0-9]+;)*', ti.NoTarima, '='))))
             ORDER BY ti.NoTarima
             LIMIT 1";
-
-        // Inventario de la hoja; null si aún no tiene.
-        private int? LeerInventarioHoja(MySqlConnection connection, MySqlTransaction transaction, bool bloquear = false)
-        {
-            using (var cmd = new MySqlCommand($@"
-                SELECT IdInventario FROM PreparacionPedidos
-                WHERE IdPedido = @IdPedido AND NoHoja = @NoHoja
-                LIMIT 1 {(bloquear ? "FOR UPDATE" : "")}", connection, transaction))
-            {
-                cmd.Parameters.AddWithValue("@IdPedido", idPedido);
-                cmd.Parameters.AddWithValue("@NoHoja", noHoja);
-                var res = cmd.ExecuteScalar();
-                if (res == null || res == DBNull.Value) return null;
-                int id = Convert.ToInt32(res);
-                return id > 0 ? id : (int?)null;
-            }
-        }
 
         private (int IdTarima, int NoTarima) LeerTarimaAbiertaDeHoja(MySqlConnection connection, MySqlTransaction transaction)
         {
@@ -1066,7 +1049,8 @@ namespace WMS_Movil
                         }
 
                         (idTarima, noTarima) = LeerTarimaAbiertaDeHoja(connection, null);
-                        idInventario = LeerInventarioHoja(connection, null);
+                        if (idTarima > 0)
+                            idInventario = RepartoTarimas.LeerInventarioTarima(connection, null, idTarima);
                     }
                 });
 
@@ -1517,43 +1501,16 @@ namespace WMS_Movil
         // HELPERS DE CONFIRMACIÓN (misma transacción del llamador)
         // ─────────────────────────────────────────
 
-        // Inventario de la hoja: se crea con el primer producto confirmado de la hoja y lo
-        // usan todas sus tarimas. Bloquea la fila de la hoja hasta el fin de la transacción.
-        private int ObtenerOCrearInventarioHoja(MySqlConnection connection, MySqlTransaction transaction,
-            string fechaActual, string fechaHoraActual)
-        {
-            int? idExistente = LeerInventarioHoja(connection, transaction, bloquear: true);
-            if (idExistente.HasValue)
-                return idExistente.Value;
-
-            int idInventario = CrearInventario(connection, transaction, fechaActual, fechaHoraActual);
-
-            using (var cmd = new MySqlCommand(@"
-                UPDATE PreparacionPedidos
-                SET IdInventario = @IdInventario
-                WHERE IdPedido = @IdPedido AND NoHoja = @NoHoja", connection, transaction))
-            {
-                cmd.Parameters.AddWithValue("@IdInventario", idInventario);
-                cmd.Parameters.AddWithValue("@IdPedido", idPedido);
-                cmd.Parameters.AddWithValue("@NoHoja", noHoja);
-                // Sin la fila de la hoja cada producto crearía otro inventario
-                if (cmd.ExecuteNonQuery() == 0)
-                    throw new Exception($"La Hoja #{noHoja} no está registrada en PreparacionPedidos.");
-            }
-
-            return idInventario;
-        }
-
-        // Inventario de la hoja para un producto que entra a la tarima activa.
+        // Inventario de la tarima activa: se crea con el primer producto que entra en ella.
         // También relee (y bloquea) la tarima para usar su NoTarima vigente en el resto
-        // de la transacción, y le asigna el inventario de la hoja si aún no tiene.
+        // de la transacción.
         private int ObtenerOCrearInventario(MySqlConnection connection, MySqlTransaction transaction,
             string fechaActual, string fechaHoraActual)
         {
             if (_idTarimaActual == 0)
                 throw new Exception("No hay una tarima activa.");
 
-            bool tarimaSinInventario;
+            int? idExistente;
             using (var cmd = new MySqlCommand(@"
                 SELECT NoTarima, IdInventario FROM TarimasInventario
                 WHERE IdTarima = @IdTarima FOR UPDATE", connection, transaction))
@@ -1564,24 +1521,44 @@ namespace WMS_Movil
                     if (!r.Read())
                         throw new Exception("La tarima activa ya no existe. Vuelva a entrar a la hoja.");
                     _tarimaActualNumero = r.GetInt32("NoTarima");
-                    tarimaSinInventario = r.IsDBNull(r.GetOrdinal("IdInventario")) || r.GetInt32("IdInventario") <= 0;
+                    idExistente = r.IsDBNull(r.GetOrdinal("IdInventario")) || r.GetInt32("IdInventario") <= 0
+                        ? (int?)null
+                        : r.GetInt32("IdInventario");
                 }
             }
 
-            int idInventario = ObtenerOCrearInventarioHoja(connection, transaction, fechaActual, fechaHoraActual);
+            if (idExistente.HasValue)
+                return idExistente.Value;
 
-            if (tarimaSinInventario)
+            int idInventario = CrearInventario(connection, transaction, fechaActual, fechaHoraActual);
+
+            using (var cmd = new MySqlCommand(
+                "UPDATE TarimasInventario SET IdInventario = @IdInventario WHERE IdTarima = @IdTarima", connection, transaction))
             {
-                using (var cmd = new MySqlCommand(
-                    "UPDATE TarimasInventario SET IdInventario = @IdInventario WHERE IdTarima = @IdTarima", connection, transaction))
-                {
-                    cmd.Parameters.AddWithValue("@IdInventario", idInventario);
-                    cmd.Parameters.AddWithValue("@IdTarima", _idTarimaActual);
-                    cmd.ExecuteNonQuery();
-                }
+                cmd.Parameters.AddWithValue("@IdInventario", idInventario);
+                cmd.Parameters.AddWithValue("@IdTarima", _idTarimaActual);
+                cmd.ExecuteNonQuery();
             }
 
+            RegistrarPrimerInventarioHoja(connection, transaction, idInventario);
             return idInventario;
+        }
+
+        // La hoja guarda solo su primer inventario como referencia (lo muestra el reporte Mis Pedidos);
+        // el inventario de cada tarima está en TarimasInventario.IdInventario.
+        private void RegistrarPrimerInventarioHoja(MySqlConnection connection, MySqlTransaction transaction, int idInventario)
+        {
+            using (var cmd = new MySqlCommand(@"
+                UPDATE PreparacionPedidos
+                SET IdInventario = @IdInventario
+                WHERE IdPedido = @IdPedido AND NoHoja = @NoHoja
+                  AND (IdInventario IS NULL OR IdInventario <= 0)", connection, transaction))
+            {
+                cmd.Parameters.AddWithValue("@IdInventario", idInventario);
+                cmd.Parameters.AddWithValue("@IdPedido", idPedido);
+                cmd.Parameters.AddWithValue("@NoHoja", noHoja);
+                cmd.ExecuteNonQuery();
+            }
         }
 
         // Encabezado de inventario con los datos del pedido.
@@ -1756,7 +1733,7 @@ namespace WMS_Movil
             string fechaActual = ahora.ToString("yyyy-MM-dd");
             string fechaHoraActual = ahora.ToString("yyyy-MM-dd HH:mm:ss");
             var partes = new List<ParteTarima>();
-            // Inventario donde quedó cada parte (el de la hoja)
+            // Inventario donde quedó cada parte (el de su tarima)
             var inventarioPorParte = new List<(ParteTarima Parte, int IdInventario)>();
             int? idInventarioAbierta = null;
 
@@ -1798,16 +1775,14 @@ namespace WMS_Movil
                                 siguienteTarima = Convert.ToInt32(cmd.ExecuteScalar());
                             }
 
-                            // Todas las tarimas del reparto van al inventario de la hoja
-                            int idInventarioHoja = idInventarioAbierta
-                                ?? ObtenerOCrearInventarioHoja(connection, transaction, fechaActual, fechaHoraActual);
-
+                            // Cada tarima completa del reparto lleva su propio inventario
                             foreach (int cantidad in cantidadesNuevas)
                             {
                                 var parte = new ParteTarima { NoTarima = siguienteTarima++, Cantidad = cantidad };
                                 partes.Add(parte);
 
-                                int idInventario = idInventarioHoja;
+                                int idInventario = CrearInventario(connection, transaction, fechaActual, fechaHoraActual);
+                                RegistrarPrimerInventarioHoja(connection, transaction, idInventario);
                                 RegistrarParte(connection, transaction, idInventario, parte);
 
                                 using (var cmd = new MySqlCommand(@"
@@ -1887,7 +1862,9 @@ namespace WMS_Movil
                             }
 
                             transaction.Commit();
-                            idInventarioActual = idInventarioHoja;
+                            // Solo cambia si la última parte quedó en la tarima abierta
+                            if (idInventarioAbierta.HasValue)
+                                idInventarioActual = idInventarioAbierta;
                         }
                         catch (Exception ex)
                         {
@@ -2291,7 +2268,8 @@ namespace WMS_Movil
                         {
                             // Tarima abierta del usuario en esta hoja (p. ej. la de un reparto)
                             (idTarima, tarimaNum) = LeerTarimaAbiertaDeHoja(connection, transaction);
-                            idInventario = LeerInventarioHoja(connection, transaction);
+                            if (idTarima > 0)
+                                idInventario = RepartoTarimas.LeerInventarioTarima(connection, transaction, idTarima);
 
                             if (idTarima == 0)
                             {
@@ -2393,8 +2371,8 @@ namespace WMS_Movil
 
         // Entrega la tarima activa. Si tiene productos, primero se graba su tarjeta NFC
         // (la página de la tarjeta la entrega en la BD al terminar); si está vacía, se elimina.
-        // La siguiente tarima, que sigue usando el inventario de la hoja, se abre al
-        // confirmar el próximo producto. Devuelve null si el usuario canceló la entrega.
+        // La siguiente tarima se abre, con su propio inventario, al confirmar el
+        // próximo producto. Devuelve null si el usuario canceló la entrega.
         private async Task<RepartoTarimas.ResultadoEntrega?> EntregarTarimaActualAsync(bool permiteCancelar)
         {
             var nfc = DependencyService.Get<INfcService>();
@@ -2452,12 +2430,53 @@ namespace WMS_Movil
                 resultado = RepartoTarimas.ResultadoEntrega.Cerrada;
             }
 
-            // El inventario es de la hoja: la siguiente tarima sigue usándolo
+            // El inventario es de la tarima: la siguiente crea el suyo
             _idTarimaActual = 0;
             _tarimaActualNumero = 0;
+            idInventarioActual = null;
             Device.BeginInvokeOnMainThread(ActualizarBadgeTarima);
             MostrarInventarioActual();
             return resultado;
+        }
+
+        // Hoja finalizada: la tarima se entrega primero en la BD y enseguida se pide su
+        // tarjeta (sin poder cancelar). Si la app se cierra antes de grabarla, la tarima
+        // queda entregada con IUD vacío y Home vuelve a pedir la tarjeta al entrar.
+        private async Task EntregarTarimaHojaFinalizadaAsync()
+        {
+            int idTarima = _idTarimaActual;
+            int noTarima = 0;
+            var resultado = RepartoTarimas.ResultadoEntrega.NoExiste;
+
+            await Task.Run(() =>
+            {
+                using (var connection = new MySqlConnection(BuildConnectionString()))
+                {
+                    connection.Open();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        resultado = RepartoTarimas.EntregarTarima(connection, transaction, idTarima);
+                        if (resultado == RepartoTarimas.ResultadoEntrega.Cerrada)
+                        {
+                            using (var cmd = new MySqlCommand(
+                                "SELECT NoTarima FROM TarimasInventario WHERE IdTarima = @IdTarima", connection, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@IdTarima", idTarima);
+                                noTarima = Convert.ToInt32(cmd.ExecuteScalar());
+                            }
+                        }
+                        transaction.Commit();
+                    }
+                }
+            });
+
+            _idTarimaActual = 0;
+            _tarimaActualNumero = 0;
+            idInventarioActual = null;
+            Device.BeginInvokeOnMainThread(ActualizarBadgeTarima);
+
+            if (resultado == RepartoTarimas.ResultadoEntrega.Cerrada)
+                await ConfigurarTarjetasEntregadasAsync(new List<(int IdTarima, int NoTarima)> { (idTarima, noTarima) });
         }
 
         // Tarimas que ya quedaron entregadas: pide la tarjeta de cada una (sin poder cancelar).
@@ -2470,7 +2489,8 @@ namespace WMS_Movil
             if (nfc == null || !nfc.TieneNfc)
             {
                 await DisplayAlert("Sin NFC",
-                    $"Este teléfono no tiene NFC. Las tarimas {string.Join(", ", tarimas.Select(t => t.NoTarima))} quedaron entregadas sin tarjeta.", "OK");
+                    $"Este teléfono no tiene NFC. Las tarimas {string.Join(", ", tarimas.Select(t => t.NoTarima))} quedaron entregadas sin tarjeta; " +
+                    "se pedirá al entrar con un teléfono que tenga NFC.", "OK");
                 return;
             }
 
@@ -2635,7 +2655,7 @@ namespace WMS_Movil
                         {
                             try
                             {
-                                await EntregarTarimaActualAsync(permiteCancelar: false);
+                                await EntregarTarimaHojaFinalizadaAsync();
                                 break;
                             }
                             catch (Exception ex)
@@ -2664,12 +2684,14 @@ namespace WMS_Movil
 
         // ─────────────────────────────────────────
         // POPUP HOJA COMPLETADA
-        // Avisa que la tarima se entrega; espera a que el usuario toque "Entregar tarima".
+        // Avisa que la tarima se entrega y sigue sola a la tarjeta NFC en unos segundos
+        // (o de inmediato si el usuario toca el botón).
         // ─────────────────────────────────────────
 
+        private const int EsperaHojaCompletadaMs = 2000;
         private TaskCompletionSource<bool> _respuestaHojaCompletada;
 
-        private async Task<bool> MostrarHojaCompletadaAsync()
+        private async Task MostrarHojaCompletadaAsync()
         {
             _respuestaHojaCompletada = new TaskCompletionSource<bool>();
 
@@ -2686,11 +2708,10 @@ namespace WMS_Movil
                 HojaCompletadaCard.ScaleTo(1, 180, Easing.CubicOut),
                 HojaCompletadaCard.FadeTo(1, 180));
 
-            bool entregar = await _respuestaHojaCompletada.Task;
+            await Task.WhenAny(_respuestaHojaCompletada.Task, Task.Delay(EsperaHojaCompletadaMs));
 
             HojaCompletadaOverlay.IsVisible = false;
             _respuestaHojaCompletada = null;
-            return entregar;
         }
 
         private void OnHojaCompletadaEntregarTapped(object sender, EventArgs e) =>

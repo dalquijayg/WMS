@@ -123,7 +123,7 @@ namespace WMS_Movil
             MisPedidosFrame.IsVisible = true;
             MisChequeosFrame.IsVisible = true;
             UbicacionesFrame.IsVisible = true;
-            EmbajajeFrame.IsVisible = true;
+            SalidaFrame.IsVisible = true;
         }
 
         protected override void OnDisappearing()
@@ -448,15 +448,15 @@ namespace WMS_Movil
                 await DisplayAlert("Error", "Error al abrir Rechequeo: " + ex.Message, "OK");
             }
         }
-        private async void OnEmbajajeClicked(object sender, EventArgs e)
+        private async void OnSalidaClicked(object sender, EventArgs e)
         {
             try
             {
-                await Navigation.PushAsync(new Embalaje());
+                await Navigation.PushAsync(new SalidaTarimas());
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", "Error al abrir Embalaje: " + ex.Message, "OK");
+                await DisplayAlert("Error", "Error al abrir Salida de tarimas: " + ex.Message, "OK");
             }
         }
 

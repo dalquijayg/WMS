@@ -364,23 +364,23 @@
                                            HorizontalOptions="Center"/>
                                 </StackLayout>
 
-                                <!-- Embalaje -->
-                                <StackLayout x:Name="EmbajajeFrame"
+                                <!-- Salida de tarimas embaladas (carga al camión) -->
+                                <StackLayout x:Name="SalidaFrame"
                                              IsVisible="False"
                                              Spacing="8" WidthRequest="74">
                                     <StackLayout.GestureRecognizers>
-                                        <TapGestureRecognizer Tapped="OnEmbajajeClicked"/>
+                                        <TapGestureRecognizer Tapped="OnSalidaClicked"/>
                                     </StackLayout.GestureRecognizers>
                                     <Frame BackgroundColor="#FCD34D"
                                            CornerRadius="30"
                                            WidthRequest="60" HeightRequest="60"
-                                           Padding="10" HasShadow="False"
+                                           Padding="0" HasShadow="False"
                                            HorizontalOptions="Center">
-                                        <Image Source="tarima.png"
-                                               HorizontalOptions="Center"
-                                               VerticalOptions="Center"/>
+                                        <Label Text="🚚" FontSize="28"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center"/>
                                     </Frame>
-                                    <Label Text="Embalaje"
+                                    <Label Text="Salida de&#10;Tarimas"
                                            TextColor="#1F2937"
                                            FontSize="10"
                                            FontAttributes="Bold"
