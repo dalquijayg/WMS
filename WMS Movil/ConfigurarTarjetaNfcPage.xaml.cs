@@ -156,13 +156,14 @@ namespace WMS_Movil
                 try
                 {
                     // La tarjeta solo se puede reutilizar cuando su tarima terminó el rechequeo
-                    // (EstadoChequeo = 1). Se busca por el IdTarima grabado y por el UID.
+                    // (EstadoChequeo = 1) y no identifica a una tarima de embalaje abierta.
+                    // Se busca por el IdTarima grabado y por el UID.
                     string ocupada;
                     try
                     {
                         int? idTarimaGrabada = int.TryParse(tarjeta.Texto, out int id) ? id : (int?)null;
                         ocupada = await Task.Run(() =>
-                            DescribirTarimaQueUsaLaTarjeta(idTarimaGrabada, tarjeta.Uid, _pendiente.IdTarima));
+                            DescribirUsoDeLaTarjeta(idTarimaGrabada, tarjeta.Uid, _pendiente.IdTarima));
                     }
                     catch (Exception ex)
                     {
@@ -171,7 +172,7 @@ namespace WMS_Movil
                     }
                     if (ocupada != null)
                     {
-                        MostrarError($"Esta tarjeta pertenece a la {ocupada}, que aún no termina el rechequeo. Use otra tarjeta.");
+                        MostrarError(ocupada + " Use otra tarjeta.");
                         continue;
                     }
 
@@ -305,14 +306,20 @@ namespace WMS_Movil
             return lista;
         }
 
-        // Otra tarima que todavía usa la tarjeta (grabada con su IdTarima o con su UID en IUD)
-        // y no ha terminado el rechequeo (EstadoChequeo <> 1):
-        // "Tarima #N del Pedido #P (Inventario #I)". null si la tarjeta está disponible.
-        private static string DescribirTarimaQueUsaLaTarjeta(int? idTarimaGrabada, string uid, int idTarimaActual)
+        // Por qué la tarjeta no está disponible, o null si lo está. Está ocupada si:
+        // - otra tarima de preparación la usa (grabada con su IdTarima o con su UID en IUD) y no ha
+        //   terminado el rechequeo (EstadoChequeo <> 1), o
+        // - identifica a una tarima de embalaje que aún no se cierra (Estado 1).
+        private static string DescribirUsoDeLaTarjeta(int? idTarimaGrabada, string uid, int idTarimaActual)
         {
             using (var connection = new MySqlConnection(BuildConnectionString()))
             {
                 connection.Open();
+
+                var embalaje = EmbalajeTarimas.BuscarAbiertaPorTarjeta(connection, null, uid, idTarimaGrabada);
+                if (embalaje != null)
+                    return $"Esta tarjeta es de la tarima de embalaje {embalaje.Codigo}, que aún no se cierra.";
+
                 using (var cmd = new MySqlCommand(@"
                     SELECT IdPedido, NoTarima, IdInventario FROM TarimasInventario
                     WHERE IdTarima <> @IdTarimaActual
@@ -330,7 +337,8 @@ namespace WMS_Movil
                         string inventario = r.IsDBNull(r.GetOrdinal("IdInventario"))
                             ? "sin inventario"
                             : $"Inventario #{Convert.ToInt32(r["IdInventario"])}";
-                        return $"Tarima #{Convert.ToInt32(r["NoTarima"])} del Pedido #{Convert.ToInt32(r["IdPedido"])} ({inventario})";
+                        return $"Esta tarjeta pertenece a la Tarima #{Convert.ToInt32(r["NoTarima"])} del Pedido " +
+                               $"#{Convert.ToInt32(r["IdPedido"])} ({inventario}), que aún no termina el rechequeo.";
                     }
                 }
             }

@@ -27,11 +27,13 @@ namespace WMS_Movil
 
         private class TarimaPendiente
         {
+            public int IdTarima { get; set; }
             public int IdPedido { get; set; }
             public int NoTarima { get; set; }
         }
 
         private bool _buscando = false;
+        private bool _pendienteRevisado;
         private CancellationTokenSource _nfcCancelacion;
 
         public ListRechequeo()
@@ -45,6 +47,128 @@ namespace WMS_Movil
             _nfcCancelacion?.Cancel();
             _nfcCancelacion = new CancellationTokenSource();
             _ = EscucharTarjetasAsync(_nfcCancelacion.Token);
+
+            // Solo al entrar: si al volver del detalle se abriera otra vez, no se podría salir
+            if (!_pendienteRevisado)
+            {
+                _pendienteRevisado = true;
+                _ = AbrirRechequeoPendienteAsync();
+            }
+        }
+
+        // Tarima que este usuario empezó a rechequear y embalar y no ha terminado: se abre su
+        // detalle sin tener que volver a tocar la tarjeta.
+        private async Task AbrirRechequeoPendienteAsync()
+        {
+            if (_buscando) return;
+            _buscando = true;
+            LoadingOverlay.IsVisible = true;
+            try
+            {
+                int idUsuario = App.IdUsuarioActual;
+                var pendiente = await Task.Run(() =>
+                {
+                    using (var connection = new MySqlConnection(BuildConnectionString()))
+                    {
+                        connection.Open();
+                        return LeerRechequeoPendiente(connection, idUsuario, 0);
+                    }
+                });
+
+                if (pendiente != null)
+                    await AbrirDetalleAsync(pendiente.IdTarima, pendiente.IdPedido, pendiente.NoTarima, null);
+            }
+            catch (Exception ex)
+            {
+                // Sin conexión: se sigue con el toque de tarjeta normal
+                System.Diagnostics.Debug.WriteLine($"Error buscando rechequeo pendiente: {ex.Message}");
+            }
+            finally
+            {
+                LoadingOverlay.IsVisible = false;
+                _buscando = false;
+            }
+        }
+
+        // Antes de mostrar el detalle se decide la tarima de embalaje:
+        // - si el usuario ya embaló productos de esta tarima en una tarima de embalaje que sigue
+        //   abierta, se retoma esa sin preguntar;
+        // - si la sucursal no tiene tarimas de embalaje abiertas, se registrará una nueva;
+        // - si ya tiene, se pregunta si crea una nueva o usa una ya creada.
+        // uidTarjeta: tarjeta con la que se abrió (el detalle la ignora unos segundos).
+        private async Task AbrirDetalleAsync(int idTarima, int idPedido, int noTarima, string uidTarjeta)
+        {
+            int idUsuario = App.IdUsuarioActual;
+            TarimaEmbalaje ultima = null;
+            int abiertas = 0;
+
+            await Task.Run(() =>
+            {
+                using (var connection = new MySqlConnection(BuildConnectionString()))
+                {
+                    connection.Open();
+                    ultima = EmbalajeTarimas.LeerUltimaDelUsuario(connection, idTarima, idUsuario);
+                    if (ultima != null) return;
+
+                    int? idSucursal = EmbalajeTarimas.LeerSucursalPedido(connection, null, idPedido);
+                    if (idSucursal.HasValue)
+                        abiertas = EmbalajeTarimas.ListarAbiertas(connection, idSucursal.Value).Count;
+                }
+            });
+
+            var modo = DetalleHojarechequeo.ModoDestino.Retomar;
+            if (ultima == null)
+            {
+                LoadingOverlay.IsVisible = false;
+                string tarima = $"Tarima #{noTarima} del Pedido #{idPedido}";
+                if (abiertas == 0)
+                {
+                    await DisplayAlert("Registrar tarima de embalaje",
+                        $"{tarima}\n\nEsta sucursal aún no tiene tarimas de embalaje abiertas.\n" +
+                        "En el detalle, toque la tarjeta de la tarima que será la tarima de embalaje.", "OK");
+                    modo = DetalleHojarechequeo.ModoDestino.CrearNueva;
+                }
+                else
+                {
+                    bool usarCreada = await DisplayAlert("Tarima de embalaje",
+                        $"{tarima}\n\nLa sucursal tiene {abiertas} tarima{(abiertas == 1 ? "" : "s")} de embalaje " +
+                        $"abierta{(abiertas == 1 ? "" : "s")}.\n¿Va a usar una tarima ya creada o va a crear una nueva?",
+                        "Usar una creada", "Crear nueva");
+                    modo = usarCreada
+                        ? DetalleHojarechequeo.ModoDestino.UsarCreada
+                        : DetalleHojarechequeo.ModoDestino.CrearNueva;
+                }
+            }
+
+            await Navigation.PushAsync(new DetalleHojarechequeo(idTarima, idPedido, noTarima, modo, uidTarjeta));
+        }
+
+        // Rechequeo que el usuario empezó y no ha terminado, en cualquier pedido (sin contar excluirIdTarima).
+        private static TarimaPendiente LeerRechequeoPendiente(MySqlConnection connection, int idUsuario, int excluirIdTarima)
+        {
+            using (var cmd = new MySqlCommand(@"
+                SELECT IdTarima, IdPedido, NoTarima
+                FROM TarimasInventario
+                WHERE IdUsuarioChequeo = @IdUsuario
+                  AND FechaHoraFin IS NULL
+                  AND COALESCE(EstadoChequeo, 0) <> 1
+                  AND IdTarima <> @IdTarima
+                ORDER BY FechaHoraInicio
+                LIMIT 1", connection))
+            {
+                cmd.Parameters.AddWithValue("@IdUsuario", idUsuario);
+                cmd.Parameters.AddWithValue("@IdTarima", excluirIdTarima);
+                using (var r = cmd.ExecuteReader())
+                {
+                    if (!r.Read()) return null;
+                    return new TarimaPendiente
+                    {
+                        IdTarima = Convert.ToInt32(r["IdTarima"]),
+                        IdPedido = Convert.ToInt32(r["IdPedido"]),
+                        NoTarima = Convert.ToInt32(r["NoTarima"])
+                    };
+                }
+            }
         }
 
         protected override void OnDisappearing()
@@ -88,7 +212,10 @@ namespace WMS_Movil
                 }
                 catch (OperationCanceledException)
                 {
-                    return;
+                    if (cancelacion.IsCancellationRequested) return;
+                    // La canceló otra pantalla al navegar (el lector atiende una espera a la vez)
+                    await Task.Delay(300);
+                    continue;
                 }
                 catch (NfcException ex)
                 {
@@ -112,7 +239,7 @@ namespace WMS_Movil
                 }
 
                 MostrarEstado("✅", $"Tarima Id {idTarima}", $"UID: {tarjeta.Uid}");
-                await BuscarTarima(idTarima);
+                await BuscarTarima(idTarima, tarjeta.Uid);
             }
         }
 
@@ -135,7 +262,7 @@ namespace WMS_Movil
             await Navigation.PopAsync();
         }
 
-        private async Task BuscarTarima(int idTarima)
+        private async Task BuscarTarima(int idTarima, string uidTarjeta)
         {
             if (_buscando) return;
 
@@ -186,29 +313,7 @@ namespace WMS_Movil
                         if (tarima == null) return;
 
                         // Rechequeo que este usuario empezó y no ha terminado, en cualquier pedido
-                        using (var cmd = new MySqlCommand(@"
-                            SELECT IdPedido, NoTarima
-                            FROM TarimasInventario
-                            WHERE IdUsuarioChequeo = @IdUsuario
-                              AND FechaHoraFin IS NULL
-                              AND IdTarima <> @IdTarima
-                            ORDER BY FechaHoraInicio
-                            LIMIT 1", connection))
-                        {
-                            cmd.Parameters.AddWithValue("@IdUsuario", idUsuario);
-                            cmd.Parameters.AddWithValue("@IdTarima", idTarima);
-                            using (var r = cmd.ExecuteReader())
-                            {
-                                if (r.Read())
-                                {
-                                    pendiente = new TarimaPendiente
-                                    {
-                                        IdPedido = Convert.ToInt32(r["IdPedido"]),
-                                        NoTarima = Convert.ToInt32(r["NoTarima"])
-                                    };
-                                }
-                            }
-                        }
+                        pendiente = LeerRechequeoPendiente(connection, idUsuario, idTarima);
 
                         // Productos normales + partes de productos repartidos
                         tarima.Productos = RepartoTarimas.ContarProductosEnTarima(
@@ -226,9 +331,11 @@ namespace WMS_Movil
 
                 if (pendiente != null)
                 {
-                    await DisplayAlert("Rechequeo pendiente",
+                    bool continuar = await DisplayAlert("Rechequeo pendiente",
                         $"Tienes sin terminar la Tarima #{pendiente.NoTarima} del Pedido #{pendiente.IdPedido}.\n\n" +
-                        "Debes finalizarla antes de rechequear otra tarima.", "OK");
+                        "Debes finalizarla antes de rechequear otra tarima.", "Continuarla", "Cerrar");
+                    if (continuar)
+                        await AbrirDetalleAsync(pendiente.IdTarima, pendiente.IdPedido, pendiente.NoTarima, null);
                     return;
                 }
 
@@ -260,7 +367,7 @@ namespace WMS_Movil
                     return;
                 }
 
-                await Navigation.PushAsync(new DetalleHojarechequeo(idTarima, tarima.IdPedido, tarima.NoTarima));
+                await AbrirDetalleAsync(idTarima, tarima.IdPedido, tarima.NoTarima, uidTarjeta);
             }
             catch (Exception ex)
             {

@@ -21,6 +21,11 @@ namespace WMS_Movil.Servicio
         public string NombreUsuarioCreo { get; set; }
         public DateTime? FechaSalida { get; set; }
 
+        // Tarjeta NFC que la identifica mientras se embala: es la tarjeta de la tarima de
+        // preparación que físicamente se convirtió en esta tarima (no se regraba).
+        public string Iud { get; set; }
+        public int? IdTarimaTarjeta { get; set; }
+
         public string Codigo => $"L{NoLote}-T{NoTarimaEmbalada}";
     }
 
@@ -66,7 +71,8 @@ namespace WMS_Movil.Servicio
             SELECT te.IdTarimaEmbalada, te.IdLote, l.NoLote, te.NoTarimaEmbalada, te.IdSucursal,
                    te.Estado, te.IdInventario, COALESCE(te.CantidadSkus, 0) AS CantidadSkus,
                    COALESCE(te.CantidadFardos, 0) AS CantidadFardos,
-                   COALESCE(te.NombreUsuarioCreo, '') AS NombreUsuarioCreo, te.FechaSalida
+                   COALESCE(te.NombreUsuarioCreo, '') AS NombreUsuarioCreo, te.FechaSalida,
+                   te.IUD, te.IdTarimaTarjeta
             FROM TarimasEmbalaje te
             INNER JOIN LotesEmbalaje l ON l.IdLote = te.IdLote";
 
@@ -83,8 +89,54 @@ namespace WMS_Movil.Servicio
             CantidadSkus = Convert.ToInt32(r["CantidadSkus"]),
             CantidadFardos = Convert.ToInt32(r["CantidadFardos"]),
             NombreUsuarioCreo = Convert.ToString(r["NombreUsuarioCreo"]),
-            FechaSalida = r.IsDBNull(r.GetOrdinal("FechaSalida")) ? (DateTime?)null : r.GetDateTime("FechaSalida")
+            FechaSalida = r.IsDBNull(r.GetOrdinal("FechaSalida")) ? (DateTime?)null : r.GetDateTime("FechaSalida"),
+            Iud = r.IsDBNull(r.GetOrdinal("IUD")) ? null : Convert.ToString(r["IUD"]),
+            IdTarimaTarjeta = r.IsDBNull(r.GetOrdinal("IdTarimaTarjeta")) ? (int?)null : Convert.ToInt32(r["IdTarimaTarjeta"])
         };
+
+        // Condición SQL: la tarima de embalaje se identifica con la tarjeta (por su UID o por el
+        // IdTarima de preparación grabado en ella). Usa los parámetros @Uid y @IdTarimaTarjeta.
+        private const string CondicionTarjeta =
+            "((@Uid <> '' AND te.IUD = @Uid) OR (@IdTarimaTarjeta IS NOT NULL AND te.IdTarimaTarjeta = @IdTarimaTarjeta))";
+
+        private static void ParametrosTarjeta(MySqlCommand cmd, string uid, int? idTarimaTarjeta)
+        {
+            cmd.Parameters.AddWithValue("@Uid", uid ?? "");
+            cmd.Parameters.AddWithValue("@IdTarimaTarjeta", (object)idTarimaTarjeta ?? DBNull.Value);
+        }
+
+        // Tarima de embalaje abierta (Estado 1) que se identifica con esta tarjeta; null si ninguna.
+        public static TarimaEmbalaje BuscarAbiertaPorTarjeta(MySqlConnection conn, MySqlTransaction tr,
+            string uid, int? idTarimaTarjeta, bool bloquear = false)
+        {
+            using (var cmd = new MySqlCommand(
+                SqlTarima + " WHERE te.Estado = @Embalando AND " + CondicionTarjeta +
+                " ORDER BY te.IdTarimaEmbalada DESC LIMIT 1" + (bloquear ? " FOR UPDATE" : ""), conn, tr))
+            {
+                cmd.Parameters.AddWithValue("@Embalando", EstadoEmbalando);
+                ParametrosTarjeta(cmd, uid, idTarimaTarjeta);
+                using (var r = cmd.ExecuteReader())
+                    return r.Read() ? LeerFila(r) : null;
+            }
+        }
+
+        // Última tarima de embalaje, aún abierta, donde el usuario puso productos de esta tarima de
+        // preparación: al volver a entrar al rechequeo se carga sola.
+        public static TarimaEmbalaje LeerUltimaDelUsuario(MySqlConnection conn, int idTarima, int idUsuario)
+        {
+            using (var cmd = new MySqlCommand(
+                SqlTarima + @" WHERE te.Estado = @Embalando
+                  AND te.IdTarimaEmbalada = (SELECT d.IdTarimaEmbalada FROM DetalleTarimaEmbalada d
+                                             WHERE d.IdTarima = @IdTarima AND d.IdUsuario = @IdUsuario
+                                             ORDER BY d.Id DESC LIMIT 1)", conn))
+            {
+                cmd.Parameters.AddWithValue("@Embalando", EstadoEmbalando);
+                cmd.Parameters.AddWithValue("@IdTarima", idTarima);
+                cmd.Parameters.AddWithValue("@IdUsuario", idUsuario);
+                using (var r = cmd.ExecuteReader())
+                    return r.Read() ? LeerFila(r) : null;
+            }
+        }
 
         public static TarimaEmbalaje Leer(MySqlConnection conn, MySqlTransaction tr, int idTarimaEmbalada, bool bloquear = false)
         {
@@ -126,11 +178,19 @@ namespace WMS_Movil.Servicio
 
         // ─────────────────────────────────────────
         // CREAR TARIMA (lote en bodega de la sucursal; si no hay, se abre uno nuevo)
+        // Se registra con la tarjeta que se tocó; una tarjeta identifica a una sola tarima abierta.
         // ─────────────────────────────────────────
 
         public static TarimaEmbalaje CrearTarima(MySqlConnection conn, MySqlTransaction tr,
-            int idSucursal, int idUsuario, string nombreUsuario)
+            int idSucursal, int idUsuario, string nombreUsuario, string uid, int? idTarimaTarjeta)
         {
+            if (string.IsNullOrEmpty(uid))
+                throw new Exception("No se pudo leer el UID de la tarjeta. Vuelva a acercarla.");
+
+            var ocupada = BuscarAbiertaPorTarjeta(conn, tr, uid, idTarimaTarjeta, bloquear: true);
+            if (ocupada != null)
+                throw new Exception($"Esta tarjeta ya es de la tarima de embalaje {ocupada.Codigo}, que aún no se cierra.");
+
             // Lote bloqueado hasta el commit: dos usuarios no toman el mismo número
             int? idLote = null;
             using (var cmd = new MySqlCommand(@"
@@ -178,10 +238,10 @@ namespace WMS_Movil.Servicio
             int idTarima;
             using (var cmd = new MySqlCommand(@"
                 INSERT INTO TarimasEmbalaje (
-                    IdLote, IdSucursal, NoTarimaEmbalada, Estado,
+                    IdLote, IdSucursal, NoTarimaEmbalada, Estado, IUD, IdTarimaTarjeta,
                     IdUsuarioCreo, NombreUsuarioCreo, FechaCreacion, CantidadSkus, CantidadFardos
                 ) VALUES (
-                    @IdLote, @IdSucursal, @NoTarima, @Embalando,
+                    @IdLote, @IdSucursal, @NoTarima, @Embalando, @Uid, @IdTarimaTarjeta,
                     @IdUsuario, @NombreUsuario, NOW(), 0, 0
                 );
                 SELECT LAST_INSERT_ID();", conn, tr))
@@ -192,6 +252,7 @@ namespace WMS_Movil.Servicio
                 cmd.Parameters.AddWithValue("@Embalando", EstadoEmbalando);
                 cmd.Parameters.AddWithValue("@IdUsuario", idUsuario);
                 cmd.Parameters.AddWithValue("@NombreUsuario", nombreUsuario ?? "");
+                ParametrosTarjeta(cmd, uid, idTarimaTarjeta);
                 idTarima = Convert.ToInt32(cmd.ExecuteScalar());
             }
 

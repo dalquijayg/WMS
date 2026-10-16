@@ -180,7 +180,8 @@
                                    LineBreakMode="WordWrap"/>
                         </StackLayout>
                         <StackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
-                            <Button Text="Cambiar"
+                            <Button x:Name="NuevaDestinoButton"
+                                    Text="+ Nueva"
                                     BackgroundColor="#EEF2FF"
                                     TextColor="#4C51BF"
                                     FontSize="11"
@@ -188,7 +189,7 @@
                                     CornerRadius="10"
                                     HeightRequest="34"
                                     Padding="12,0"
-                                    Clicked="OnCambiarDestinoClicked"/>
+                                    Clicked="OnNuevaDestinoClicked"/>
                             <Button x:Name="CerrarDestinoButton"
                                     Text="Cerrar"
                                     BackgroundColor="#FFF7ED"

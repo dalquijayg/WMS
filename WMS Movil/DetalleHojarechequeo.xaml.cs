@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using WMS_Movil.Servicio;
 using Xamarin.Essentials;
@@ -36,8 +37,20 @@ namespace WMS_Movil
 
         private int? idSucursal;
         private string nombreSucursal = "";
-        private TarimaEmbalaje _tarimaEmbalaje;   // destino; null = se escoge o se crea al confirmar
+        private TarimaEmbalaje _tarimaEmbalaje;   // destino; null = falta tocar su tarjeta
         private bool _destinoInicializado;
+        private bool _registrandoNueva;           // la próxima tarjeta registra una tarima nueva
+        private bool _procesandoTarjeta;
+        private CancellationTokenSource _nfcCancelacion;
+
+        // Lo decide ListRechequeo antes de abrir el detalle (preguntando al usuario si hace falta).
+        public enum ModoDestino { Retomar, CrearNueva, UsarCreada }
+        private readonly ModoDestino modoDestino;
+
+        // La tarjeta con la que se abrió el detalle puede seguir junto al teléfono y volver a
+        // leerse al empezar a escuchar: se ignora durante unos segundos.
+        private readonly string uidTarjetaApertura;
+        private DateTime _ignorarAperturaHasta;
 
         // RevisadoOk: null = sin revisar, true = marcado como bien (✓), false = marcado como mal (✗).
         // Se guarda en la tabla TarimasRechequeadas al tocar cualquiera de los dos botones.
@@ -129,12 +142,16 @@ namespace WMS_Movil
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        public DetalleHojarechequeo(int idTarima, int idPedido, int numeroTarima)
+        public DetalleHojarechequeo(int idTarima, int idPedido, int numeroTarima,
+            ModoDestino modoDestino, string uidTarjetaApertura)
         {
             InitializeComponent();
             this.idTarima = idTarima;
             this.idPedido = idPedido;
             this.numeroTarima = numeroTarima;
+            this.modoDestino = modoDestino;
+            this.uidTarjetaApertura = uidTarjetaApertura;
+            _registrandoNueva = modoDestino == ModoDestino.CrearNueva;
 
             InfoPedidoLabel.Text = $"Pedido #{idPedido}  •  Tarima #{this.numeroTarima}";
             ActualizarPanelDestino();
@@ -145,6 +162,19 @@ namespace WMS_Movil
             base.OnAppearing();
             _ = CargarInfoYDestinoAsync();
             CargarProductos();
+
+            _ignorarAperturaHasta = DateTime.Now.AddSeconds(3);
+            _nfcCancelacion?.Cancel();
+            _nfcCancelacion = new CancellationTokenSource();
+            _ = EscucharTarjetasAsync(_nfcCancelacion.Token);
+        }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            _nfcCancelacion?.Cancel();
+            _nfcCancelacion = null;
+            DependencyService.Get<INfcService>()?.Detener();
         }
 
         private async Task CargarInfoYDestinoAsync()
@@ -609,13 +639,22 @@ namespace WMS_Movil
 
         // ══════════════════════════════════════
         // TARIMA DE EMBALAJE (destino)
+        // El destino se escoge tocando la tarjeta de la tarima de embalaje. Con "+ Nueva" la
+        // tarjeta que se toque queda registrada como la de una tarima de embalaje nueva.
         // ══════════════════════════════════════
 
         private void ActualizarPanelDestino()
         {
             Device.BeginInvokeOnMainThread(() =>
             {
-                if (_tarimaEmbalaje != null)
+                if (_registrandoNueva)
+                {
+                    DestinoCodigoLabel.Text = "Registrando tarima nueva";
+                    DestinoDetalleLabel.Text = "📶 Toque la tarjeta de la tarima que será la nueva tarima de embalaje";
+                    NuevaDestinoButton.Text = "Cancelar";
+                    CerrarDestinoButton.IsVisible = false;
+                }
+                else if (_tarimaEmbalaje != null)
                 {
                     DestinoCodigoLabel.Text = $"Tarima {_tarimaEmbalaje.Codigo}";
                     DestinoDetalleLabel.Text = string.Join("  •  ", new[]
@@ -624,79 +663,152 @@ namespace WMS_Movil
                         $"{_tarimaEmbalaje.CantidadSkus} SKU",
                         $"{_tarimaEmbalaje.CantidadFardos} fardos"
                     }.Where(s => !string.IsNullOrWhiteSpace(s)));
+                    NuevaDestinoButton.Text = "+ Nueva";
                     CerrarDestinoButton.IsVisible = true;
                 }
                 else
                 {
-                    DestinoCodigoLabel.Text = "Sin tarima escogida";
-                    DestinoDetalleLabel.Text = "Se escoge o se crea al confirmar el primer producto";
+                    DestinoCodigoLabel.Text = "Sin tarima de embalaje";
+                    DestinoDetalleLabel.Text = "📶 Toque la tarjeta de la tarima donde pondrá los productos, o \"+ Nueva\" para registrar una";
+                    NuevaDestinoButton.Text = "+ Nueva";
                     CerrarDestinoButton.IsVisible = false;
                 }
             });
         }
 
-        private Task<List<TarimaEmbalaje>> ListarAbiertasAsync() => Task.Run(() =>
-        {
-            using (var connection = new MySqlConnection(BuildConnectionString()))
-            {
-                connection.Open();
-                return EmbalajeTarimas.ListarAbiertas(connection, idSucursal.Value);
-            }
-        });
-
-        // Al entrar: si la sucursal ya tiene tarimas embalando, se escoge una (o una nueva);
-        // si no tiene, la tarima 1 se crea al confirmar el primer producto.
+        // Al entrar: la pregunta "crear nueva / usar una creada" ya se hizo en ListRechequeo.
+        // Solo al retomar se carga la última tarima de embalaje (aún abierta) donde este usuario
+        // puso productos de esta tarima de preparación.
         private async Task InicializarDestinoAsync()
         {
-            if (!idSucursal.HasValue) return;
+            if (modoDestino != ModoDestino.Retomar) return;
             try
             {
-                var abiertas = await ListarAbiertasAsync();
-                if (abiertas.Count > 0)
-                    await EscogerDeListaAsync(abiertas, "¿En qué tarima de embalaje vas a poner los productos?");
+                int idUsuario = App.IdUsuarioActual;
+                var ultima = await Task.Run(() =>
+                {
+                    using (var connection = new MySqlConnection(BuildConnectionString()))
+                    {
+                        connection.Open();
+                        return EmbalajeTarimas.LeerUltimaDelUsuario(connection, idTarima, idUsuario);
+                    }
+                });
+
+                if (_tarimaEmbalaje == null && ultima != null && ultima.IdSucursal == idSucursal)
+                {
+                    _tarimaEmbalaje = ultima;
+                    ActualizarPanelDestino();
+                }
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", "Error al cargar las tarimas de embalaje: " + ex.Message, "OK");
+                System.Diagnostics.Debug.WriteLine($"Error cargando la tarima de embalaje: {ex.Message}");
             }
         }
 
-        // Antes de guardar un producto: asegura que haya destino (lo crea si la sucursal no tiene
-        // ninguna tarima embalando). Devuelve false si el usuario no escogió ninguna.
-        private async Task<bool> AsegurarDestinoAsync()
+        // Mientras la pantalla está visible espera tarjetas: escoger destino o registrar una nueva.
+        private async Task EscucharTarjetasAsync(CancellationToken cancelacion)
         {
-            if (_tarimaEmbalaje != null) return true;
+            var nfc = DependencyService.Get<INfcService>();
+            if (nfc == null || !nfc.TieneNfc) return;
+
+            while (!cancelacion.IsCancellationRequested)
+            {
+                TarjetaNfc tarjeta;
+                try
+                {
+                    tarjeta = await nfc.EsperarTarjetaAsync(cancelacion);
+                }
+                catch (OperationCanceledException)
+                {
+                    if (cancelacion.IsCancellationRequested) return;
+                    // La canceló otra pantalla al navegar (el lector atiende una espera a la vez)
+                    await Task.Delay(300);
+                    continue;
+                }
+                catch (NfcException ex)
+                {
+                    await DisplayAlert("Error", ex.Message, "OK");
+                    continue;
+                }
+
+                await ProcesarTarjetaAsync(tarjeta);
+            }
+        }
+
+        private async Task ProcesarTarjetaAsync(TarjetaNfc tarjeta)
+        {
+            if (_procesandoTarjeta) return;
+            if (!string.IsNullOrEmpty(uidTarjetaApertura) && tarjeta.Uid == uidTarjetaApertura
+                && DateTime.Now < _ignorarAperturaHasta)
+                return;
+            _procesandoTarjeta = true;
+            try
+            {
+                int? idTarimaTarjeta = int.TryParse(tarjeta.Texto, out int id) && id > 0 ? id : (int?)null;
+                if (_registrandoNueva)
+                    await RegistrarNuevaTarimaAsync(tarjeta.Uid, idTarimaTarjeta);
+                else
+                    await SeleccionarDestinoAsync(tarjeta.Uid, idTarimaTarjeta);
+            }
+            finally
+            {
+                _procesandoTarjeta = false;
+            }
+        }
+
+        private async Task SeleccionarDestinoAsync(string uid, int? idTarimaTarjeta)
+        {
+            TarimaEmbalaje tarima;
+            LoadingOverlay.IsVisible = true;
+            try
+            {
+                tarima = await Task.Run(() =>
+                {
+                    using (var connection = new MySqlConnection(BuildConnectionString()))
+                    {
+                        connection.Open();
+                        return EmbalajeTarimas.BuscarAbiertaPorTarjeta(connection, null, uid, idTarimaTarjeta);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                LoadingOverlay.IsVisible = false;
+                await DisplayAlert("Error", "No se pudo buscar la tarima de embalaje: " + ex.Message, "OK");
+                return;
+            }
+            LoadingOverlay.IsVisible = false;
+
+            if (tarima == null)
+            {
+                await DisplayAlert("Tarjeta sin tarima de embalaje",
+                    "Esta tarjeta no es de ninguna tarima de embalaje abierta.\n\n" +
+                    "Si esta tarima será una tarima de embalaje nueva, toque \"+ Nueva\" y vuelva a acercar la tarjeta.", "OK");
+                return;
+            }
+
+            if (tarima.IdSucursal != idSucursal)
+            {
+                await DisplayAlert("Otra sucursal",
+                    $"La tarima {tarima.Codigo} es de otra sucursal. No se pueden poner aquí productos de este pedido.", "OK");
+                return;
+            }
+
+            _tarimaEmbalaje = tarima;
+            ActualizarPanelDestino();
+            try { Vibration.Vibrate(150); } catch { }
+        }
+
+        private async Task RegistrarNuevaTarimaAsync(string uid, int? idTarimaTarjeta)
+        {
             if (!idSucursal.HasValue)
             {
                 await DisplayAlert("Sin sucursal", $"El pedido #{idPedido} no tiene sucursal; no se puede embalar.", "OK");
-                return false;
+                return;
             }
 
-            var abiertas = await ListarAbiertasAsync();
-            if (abiertas.Count == 0)
-                return await CrearDestinoAsync();
-            return await EscogerDeListaAsync(abiertas, "¿En qué tarima de embalaje va este producto?");
-        }
-
-        private async Task<bool> EscogerDeListaAsync(List<TarimaEmbalaje> abiertas, string titulo)
-        {
-            const string nueva = "+ Nueva tarima";
-            var opciones = abiertas
-                .Select(t => $"{t.Codigo}  •  {t.CantidadSkus} SKU  •  {t.CantidadFardos} fardos")
-                .Concat(new[] { nueva })
-                .ToArray();
-
-            string eleccion = await DisplayActionSheet(titulo, "Cancelar", null, opciones);
-            if (eleccion == null || eleccion == "Cancelar") return false;
-            if (eleccion == nueva) return await CrearDestinoAsync();
-
-            _tarimaEmbalaje = abiertas[Array.IndexOf(opciones, eleccion)];
-            ActualizarPanelDestino();
-            return true;
-        }
-
-        private async Task<bool> CrearDestinoAsync()
-        {
+            LoadingOverlay.IsVisible = true;
             try
             {
                 var nueva = await Task.Run(() =>
@@ -706,46 +818,70 @@ namespace WMS_Movil
                         connection.Open();
                         using (var transaction = connection.BeginTransaction())
                         {
-                            var t = EmbalajeTarimas.CrearTarima(connection, transaction, idSucursal.Value,
-                                App.IdUsuarioActual, App.NombreUsuarioActual);
-                            transaction.Commit();
-                            return t;
+                            try
+                            {
+                                var t = EmbalajeTarimas.CrearTarima(connection, transaction, idSucursal.Value,
+                                    App.IdUsuarioActual, App.NombreUsuarioActual, uid, idTarimaTarjeta);
+                                transaction.Commit();
+                                return t;
+                            }
+                            catch
+                            {
+                                transaction.Rollback();
+                                throw;
+                            }
                         }
                     }
                 });
+
+                _registrandoNueva = false;
                 _tarimaEmbalaje = nueva;
                 ActualizarPanelDestino();
-                return true;
+                LoadingOverlay.IsVisible = false;
+                try { Vibration.Vibrate(150); } catch { }
+                await DisplayAlert("Tarima de embalaje creada",
+                    $"Se creó la tarima {nueva.Codigo} y quedó registrada con esta tarjeta.", "OK");
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", "No se pudo crear la tarima de embalaje: " + ex.Message, "OK");
-                return false;
+                LoadingOverlay.IsVisible = false;
+                await DisplayAlert("No se creó la tarima", ex.Message, "OK");
+            }
+            finally
+            {
+                LoadingOverlay.IsVisible = false;
             }
         }
 
-        private async void OnCambiarDestinoClicked(object sender, EventArgs e)
+        private async void OnNuevaDestinoClicked(object sender, EventArgs e)
         {
-            if (!idSucursal.HasValue) return;
-            try
+            if (_registrandoNueva)
             {
-                var abiertas = await ListarAbiertasAsync();
-                await EscogerDeListaAsync(abiertas, "Cambiar tarima de embalaje");
+                _registrandoNueva = false;
+                ActualizarPanelDestino();
+                return;
             }
-            catch (Exception ex)
+
+            var nfc = DependencyService.Get<INfcService>();
+            if (nfc == null || !nfc.TieneNfc)
             {
-                await DisplayAlert("Error", "Error al cargar las tarimas de embalaje: " + ex.Message, "OK");
+                await DisplayAlert("Sin NFC", "Este teléfono no tiene NFC; no se puede registrar la tarjeta de la tarima.", "OK");
+                return;
             }
+
+            _registrandoNueva = true;
+            ActualizarPanelDestino();
         }
 
-        // Cualquier rechequeador puede cerrarla (Estado 2): ya no se le meten ni quitan productos.
+        // Cualquier rechequeador puede cerrarla (Estado 2): ya no se le meten ni quitan productos
+        // y su tarjeta queda libre.
         private async void OnCerrarDestinoClicked(object sender, EventArgs e)
         {
             var tarima = _tarimaEmbalaje;
             if (tarima == null) return;
 
             bool confirmar = await DisplayAlert("Cerrar tarima",
-                $"¿Cerrar la tarima {tarima.Codigo}?\n\nYa no se podrán meter ni quitar productos.",
+                $"¿Cerrar la tarima {tarima.Codigo}?\n\nYa no se podrán meter ni quitar productos y su tarjeta quedará libre.",
                 "Sí, cerrar", "Cancelar");
             if (!confirmar) return;
 
@@ -787,12 +923,48 @@ namespace WMS_Movil
             }
         }
 
+        // Antes de guardar un producto: debe haber tarima de embalaje. Si la sucursal aún no tiene
+        // ninguna abierta, se pasa directo a registrar la tarjeta de la nueva.
+        private async Task<bool> AsegurarDestinoAsync()
+        {
+            if (_tarimaEmbalaje != null) return true;
+            if (!idSucursal.HasValue)
+            {
+                await DisplayAlert("Sin sucursal", $"El pedido #{idPedido} no tiene sucursal; no se puede embalar.", "OK");
+                return false;
+            }
+
+            int abiertas = await Task.Run(() =>
+            {
+                using (var connection = new MySqlConnection(BuildConnectionString()))
+                {
+                    connection.Open();
+                    return EmbalajeTarimas.ListarAbiertas(connection, idSucursal.Value).Count;
+                }
+            });
+
+            if (abiertas == 0)
+            {
+                _registrandoNueva = true;
+                ActualizarPanelDestino();
+                await DisplayAlert("Registrar tarima de embalaje",
+                    "Esta sucursal aún no tiene tarimas de embalaje abiertas.\n\n" +
+                    "Toque la tarjeta de la tarima que será la tarima de embalaje y luego vuelva a confirmar el producto.", "OK");
+            }
+            else
+            {
+                await DisplayAlert("Falta la tarima de embalaje",
+                    "Toque la tarjeta de la tarima donde pondrá este producto (o \"+ Nueva\" para registrar una) " +
+                    "y luego vuelva a confirmar el producto.", "OK");
+            }
+            return false;
+        }
+
         // ══════════════════════════════════════
         // GUARDAR: TarimasRechequeadas + embalaje, en una sola transacción
         // ══════════════════════════════════════
 
-        // Devuelve false si no se guardó porque el usuario no escogió tarima de embalaje.
-        // Si la tarima escogida la cerró otro usuario, pide otra y reintenta.
+        // Devuelve false si no se guardó (falta tarima de embalaje o la cerró otro usuario).
         private async Task<bool> GuardarRechequeo(DetalleProducto producto, int cantidadChequeada, string observacion)
         {
             int idUsuarioActual = App.IdUsuarioActual;
@@ -813,51 +985,48 @@ namespace WMS_Movil
                 UpcUnidad = producto.UpcUnidad,
                 CantidadConfirmada = producto.CantidadConfirmada
             };
+            int idTarimaEmbalada = _tarimaEmbalaje.IdTarimaEmbalada;
 
-            while (true)
+            try
             {
-                int idTarimaEmbalada = _tarimaEmbalaje.IdTarimaEmbalada;
-                try
+                _tarimaEmbalaje = await Task.Run(() =>
                 {
-                    _tarimaEmbalaje = await Task.Run(() =>
+                    using (var connection = new MySqlConnection(BuildConnectionString()))
                     {
-                        using (var connection = new MySqlConnection(BuildConnectionString()))
+                        connection.Open();
+                        using (var transaction = connection.BeginTransaction())
                         {
-                            connection.Open();
-                            using (var transaction = connection.BeginTransaction())
+                            try
                             {
-                                try
-                                {
-                                    // Si ya estaba rechequeado (y embalado) solo se actualiza el rechequeo
-                                    bool yaRechequeado = GuardarEnTarimasRechequeadas(connection, transaction, producto,
-                                        cantidadChequeada, observacion, idUsuarioActual, nombreUsuarioActual);
-                                    if (!yaRechequeado)
-                                        EmbalajeTarimas.EmbalarProducto(connection, transaction, idTarimaEmbalada,
-                                            embalar, idUsuarioActual);
+                                // Si ya estaba rechequeado (y embalado) solo se actualiza el rechequeo
+                                bool yaRechequeado = GuardarEnTarimasRechequeadas(connection, transaction, producto,
+                                    cantidadChequeada, observacion, idUsuarioActual, nombreUsuarioActual);
+                                if (!yaRechequeado)
+                                    EmbalajeTarimas.EmbalarProducto(connection, transaction, idTarimaEmbalada,
+                                        embalar, idUsuarioActual);
 
-                                    transaction.Commit();
-                                }
-                                catch
-                                {
-                                    transaction.Rollback();
-                                    throw;
-                                }
+                                transaction.Commit();
                             }
-                            return EmbalajeTarimas.Leer(connection, null, idTarimaEmbalada);
+                            catch
+                            {
+                                transaction.Rollback();
+                                throw;
+                            }
                         }
-                    });
-                    ActualizarPanelDestino();
-                    return true;
-                }
-                catch (TarimaEmbalajeCerradaException ex)
-                {
-                    _tarimaEmbalaje = null;
-                    ActualizarPanelDestino();
-                    LoadingOverlay.IsVisible = false;
-                    await DisplayAlert("Tarima cerrada", ex.Message + "\nEscoja otra tarima para este producto.", "OK");
-                    if (!await AsegurarDestinoAsync()) return false;
-                    LoadingOverlay.IsVisible = true;
-                }
+                        return EmbalajeTarimas.Leer(connection, null, idTarimaEmbalada);
+                    }
+                });
+                ActualizarPanelDestino();
+                return true;
+            }
+            catch (TarimaEmbalajeCerradaException ex)
+            {
+                _tarimaEmbalaje = null;
+                ActualizarPanelDestino();
+                LoadingOverlay.IsVisible = false;
+                await DisplayAlert("Tarima cerrada",
+                    ex.Message + "\n\nToque la tarjeta de otra tarima de embalaje (o \"+ Nueva\") y vuelva a confirmar el producto.", "OK");
+                return false;
             }
         }
 
