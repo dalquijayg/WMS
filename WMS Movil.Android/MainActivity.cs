@@ -31,6 +31,19 @@ namespace WMS_Movil.Droid
 
             LoadApplication(new App());
         }
+
+        // El modo lector NFC solo funciona con la actividad en primer plano
+        protected override void OnResume()
+        {
+            base.OnResume();
+            WMS_Movil.Droid.NfcService.Actual?.AlReanudar(this);
+        }
+
+        protected override void OnPause()
+        {
+            WMS_Movil.Droid.NfcService.Actual?.AlPausar(this);
+            base.OnPause();
+        }
         public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
         {
             Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);

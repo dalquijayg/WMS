@@ -35,7 +35,7 @@
                              VerticalOptions="Center" 
                              HorizontalOptions="Center"
                              Spacing="2">
-                    <Label Text="Mis Tarimas Realizadas"
+                    <Label Text="Mis Hojas Realizadas"
                            TextColor="White"
                            FontSize="16"
                            FontAttributes="Bold"
@@ -67,14 +67,14 @@
                Margin="0"
                HasShadow="True">
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
-                <!-- Total Tarimas -->
+                <!-- Total Hojas -->
                 <Frame Grid.Column="0"
                        BackgroundColor="#EDF2F7"
                        CornerRadius="8"
                        Padding="8,6"
                        HasShadow="False">
                     <StackLayout Spacing="2">
-                        <Label Text="Tarimas"
+                        <Label Text="Hojas"
                                FontSize="10"
                                TextColor="#718096"
                                HorizontalOptions="Center"/>
@@ -148,12 +148,12 @@
                             <Image Source="info.png"
                                    HeightRequest="50"
                                    Aspect="AspectFit"/>
-                            <Label Text="No hay tarimas realizadas"
+                            <Label Text="No hay hojas realizadas"
                                    TextColor="#4a5568"
                                    FontSize="16"
                                    FontAttributes="Bold"
                                    HorizontalOptions="Center"/>
-                            <Label Text="Las tarimas que prepares aparecerán aquí"
+                            <Label Text="Las hojas que prepares aparecerán aquí"
                                    TextColor="#718096"
                                    FontSize="13"
                                    HorizontalOptions="Center"/>
@@ -179,14 +179,14 @@
                                             <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
 
-                                        <!-- Fila 1: Header con Pedido y Tarima -->
+                                        <!-- Fila 1: Header con Pedido y Hoja -->
                                         <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
                                             <StackLayout Grid.Column="0" Orientation="Horizontal" Spacing="10">
                                                 <Label Text="{Binding IdPedido, StringFormat='Pedido #{0}'}"
                                                        TextColor="#2d3748"
                                                        FontAttributes="Bold"
                                                        FontSize="15"/>
-                                                <Label Text="{Binding NoTarima, StringFormat='Tarima {0}'}"
+                                                <Label Text="{Binding NoHoja, StringFormat='Hoja {0}'}"
                                                        TextColor="#4c51bf"
                                                        FontAttributes="Bold"
                                                        FontSize="15"/>
@@ -204,7 +204,7 @@
                                             </Frame>
                                         </Grid>
 
-                                        <!-- Fila 2: Información de la tarima -->
+                                        <!-- Fila 2: Información de la hoja -->
                                         <StackLayout Grid.Row="1" Spacing="3">
                                             <Label Text="{Binding NombreEmpresa, StringFormat='🏢 {0}'}"
                                                    TextColor="#4a5568"
@@ -214,7 +214,7 @@
                                                 <Label Text="{Binding TextoInventario, StringFormat='📦 {0}'}"
                                                        TextColor="#4a5568"
                                                        FontSize="11"/>
-                                                <Label Text="{Binding TextoHojas, StringFormat='📄 {0}'}"
+                                                <Label Text="{Binding TextoTarimas, StringFormat='▦ {0}'}"
                                                        TextColor="#4a5568"
                                                        FontSize="11"/>
                                             </StackLayout>

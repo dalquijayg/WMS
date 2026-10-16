@@ -9,27 +9,26 @@ using Xamarin.Forms.Xaml;
 
 namespace WMS_Movil.Reportes
 {
-    // Contenido de una tarima: productos normales con ese NoTarima y la parte
-    // de los productos repartidos en varias tarimas que quedó en ella.
+    // Contenido de una hoja: sus productos con el inventario de la hoja y la
+    // tarima (o tarimas, si es repartido) en que quedó cada uno.
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class DetalleMisPedidos : ContentPage
     {
         private readonly int idPedido;
-        private readonly int noTarima;
+        private readonly int noHoja;
 
         public class ProductoDetalle
         {
             public string UPC { get; set; }
             public string Descripcion { get; set; }
             public int Cantidad { get; set; }
-            // En esta tarima (para un repartido, solo su parte)
             public int CantConfirmada { get; set; }
             public string NombreCompleto { get; set; }
             public DateTime? Fechahorapreparo { get; set; }
             public string DescripcionMotivo { get; set; }
             public bool EsRepartido { get; set; }
 
-            // Hoja de origen y, si es repartido, en qué tarimas quedó
+            // Tarima donde quedó y, si es repartido, el reparto
             public string TextoTarima { get; set; }
             public bool TieneTarima => !string.IsNullOrEmpty(TextoTarima);
 
@@ -64,14 +63,14 @@ namespace WMS_Movil.Reportes
             public Color ColorBorde => ColorEstado;
         }
 
-        public DetalleMisPedidos(int idPedido, int noTarima, int? idInventario)
+        public DetalleMisPedidos(int idPedido, int noHoja, int? idInventario)
         {
             InitializeComponent();
             this.idPedido = idPedido;
-            this.noTarima = noTarima;
+            this.noHoja = noHoja;
 
-            TituloLabel.Text = "Detalle de Tarima";
-            SubtituloLabel.Text = $"Pedido #{idPedido} - Tarima {noTarima}";
+            TituloLabel.Text = "Detalle de Hoja";
+            SubtituloLabel.Text = $"Pedido #{idPedido} - Hoja {noHoja}";
             TarimasResumenLabel.Text = idInventario.HasValue ? $"📦 Inventario #{idInventario.Value}" : "📦 Sin inventario";
             TarimasResumenLabel.IsVisible = true;
         }
@@ -104,29 +103,25 @@ namespace WMS_Movil.Reportes
                             d.Fechahorapreparo,
                             COALESCE(m.DescripcionMotivo, '') AS DescripcionMotivo,
                             COALESCE(d.NoTarima, 0) AS NoTarima,
-                            d.NoHoja,
                             d.Observaciones
                         FROM detallepedidostienda_bodega d
                         LEFT JOIN usuarios u ON d.IdUsuariopreparo = u.Id
                         LEFT JOIN TiposMotivosPendiente m ON d.EstadoPreparacionproducto = m.Idpreparacion
                         WHERE d.IdConsolidado = @IdPedido
-                          AND (d.NoTarima = @NoTarima
-                               OR (d.NoTarima = 0 AND d.CantConfirmada > 0
-                                   AND d.Observaciones LIKE '[TARIMAS:%'))
+                          AND d.NoHoja = @NoHoja
                         ORDER BY d.Descripcion", connection))
                     {
                         command.Parameters.AddWithValue("@IdPedido", idPedido);
-                        command.Parameters.AddWithValue("@NoTarima", noTarima);
+                        command.Parameters.AddWithValue("@NoHoja", noHoja);
 
                         var productos = new List<ProductoDetalle>();
-                        var hojas = new SortedSet<int>();
+                        var tarimas = new SortedSet<int>();
                         int totalFardos = 0;
 
                         using (var reader = command.ExecuteReader())
                         {
                             while (reader.Read())
                             {
-                                int noHoja = Convert.ToInt32(reader["NoHoja"]);
                                 var producto = new ProductoDetalle
                                 {
                                     UPC = reader.GetString("UPC"),
@@ -136,27 +131,28 @@ namespace WMS_Movil.Reportes
                                     NombreCompleto = reader.GetString("NombreCompleto"),
                                     Fechahorapreparo = reader.IsDBNull(reader.GetOrdinal("Fechahorapreparo"))
                                         ? (DateTime?)null : reader.GetDateTime("Fechahorapreparo"),
-                                    DescripcionMotivo = reader.GetString("DescripcionMotivo"),
-                                    TextoTarima = $"Hoja {noHoja}"
+                                    DescripcionMotivo = reader.GetString("DescripcionMotivo")
                                 };
 
+                                int noTarima = Convert.ToInt32(reader["NoTarima"]);
                                 string observaciones = reader.IsDBNull(reader.GetOrdinal("Observaciones"))
                                     ? "" : reader.GetString("Observaciones");
-                                if (Convert.ToInt32(reader["NoTarima"]) == 0)
-                                {
-                                    // Repartido: solo cuenta la parte que quedó en esta tarima
-                                    var partes = RepartoTarimas.Leer(observaciones);
-                                    int cantidadAqui = partes.Where(p => p.NoTarima == noTarima).Sum(p => p.Cantidad);
-                                    if (cantidadAqui <= 0) continue;
+                                var partes = noTarima == 0 ? RepartoTarimas.Leer(observaciones) : null;
 
+                                if (partes != null && partes.Any())
+                                {
                                     producto.EsRepartido = true;
-                                    producto.CantConfirmada = cantidadAqui;
-                                    producto.TextoTarima = $"Hoja {noHoja}  ·  Repartido: " +
+                                    producto.TextoTarima = "Repartido: " +
                                         string.Join(", ", partes.Select(p => $"T{p.NoTarima} → {p.Cantidad}"));
+                                    foreach (var p in partes) tarimas.Add(p.NoTarima);
+                                }
+                                else if (noTarima > 0 && producto.CantConfirmada > 0)
+                                {
+                                    producto.TextoTarima = $"Tarima {noTarima}";
+                                    tarimas.Add(noTarima);
                                 }
 
                                 productos.Add(producto);
-                                hojas.Add(noHoja);
                                 totalFardos += producto.CantConfirmada;
                             }
                         }
@@ -166,7 +162,9 @@ namespace WMS_Movil.Reportes
                             ProductosCollection.ItemsSource = productos;
                             TotalLabel.Text = productos.Count.ToString();
                             PreparadosLabel.Text = totalFardos.ToString();
-                            PendientesLabel.Text = hojas.Count.ToString();
+                            PendientesLabel.Text = tarimas.Count.ToString();
+                            if (tarimas.Any())
+                                TarimasResumenLabel.Text += $"  ·  Tarimas: {string.Join(", ", tarimas)}";
                         });
                     }
                 }

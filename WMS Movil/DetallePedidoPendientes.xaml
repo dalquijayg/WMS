@@ -710,7 +710,7 @@
                                TextColor="#1F2937" FontSize="19"
                                FontAttributes="Bold"
                                HorizontalTextAlignment="Center"/>
-                        <Label Text="¿Qué hacemos con la tarima?"
+                        <Label Text="La tarima de esta hoja se entrega ahora"
                                TextColor="#6B7280" FontSize="13"
                                HorizontalTextAlignment="Center"/>
                     </StackLayout>
@@ -752,30 +752,8 @@
                                 <Label Text="Entregar tarima"
                                        TextColor="White" FontSize="15"
                                        FontAttributes="Bold"/>
-                                <Label Text="Se cierra ahora"
+                                <Label Text="Después se configura su tarjeta NFC"
                                        TextColor="#FEF3C7" FontSize="11"/>
-                            </StackLayout>
-                        </Grid>
-                    </Frame>
-
-                    <!-- Opción: seguir usándola -->
-                    <Frame BackgroundColor="White"
-                           BorderColor="#818CF8"
-                           CornerRadius="14"
-                           Padding="14,12" HasShadow="False">
-                        <Frame.GestureRecognizers>
-                            <TapGestureRecognizer Tapped="OnHojaCompletadaSeguirTapped"/>
-                        </Frame.GestureRecognizers>
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" InputTransparent="True">
-                            <Label Grid.Column="0" Text="🔄" FontSize="22"
-                                   VerticalOptions="Center"/>
-                            <StackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
-                                <Label Text="Seguir usándola"
-                                       TextColor="#3730A3" FontSize="15"
-                                       FontAttributes="Bold"/>
-                                <Label Text="Queda abierta para tu siguiente hoja de este pedido"
-                                       TextColor="#6B7280" FontSize="11"
-                                       LineBreakMode="WordWrap"/>
                             </StackLayout>
                         </Grid>
                     </Frame>

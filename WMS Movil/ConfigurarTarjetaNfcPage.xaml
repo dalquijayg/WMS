@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WMS_Movil.ConfigurarTarjetaNfcPage"
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="#1F2937">
+
+    <!-- Configurar la tarjeta NFC de una tarima. Obligatorio: no se cierra
+         hasta grabar el IdTarima (salvo "Cancelar entrega" si se permite). -->
+    <ScrollView>
+        <Frame BackgroundColor="White"
+               CornerRadius="22"
+               Padding="20"
+               Margin="20,40"
+               HasShadow="True"
+               VerticalOptions="Center">
+            <StackLayout Spacing="14">
+
+                <Frame x:Name="IconoFrame"
+                       BackgroundColor="#E0E7FF"
+                       CornerRadius="38"
+                       WidthRequest="76" HeightRequest="76"
+                       Padding="0" HasShadow="False"
+                       HorizontalOptions="Center">
+                    <Label x:Name="IconoLabel"
+                           Text="📶" FontSize="34"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center"/>
+                </Frame>
+
+                <StackLayout Spacing="2">
+                    <Label Text="Configurar tarjeta NFC"
+                           TextColor="#1F2937" FontSize="19"
+                           FontAttributes="Bold"
+                           HorizontalTextAlignment="Center"/>
+                    <Label x:Name="ProgresoLabel"
+                           IsVisible="False"
+                           TextColor="#6366F1" FontSize="12"
+                           FontAttributes="Bold"
+                           HorizontalTextAlignment="Center"/>
+                </StackLayout>
+
+                <Frame BackgroundColor="#EEF2FF"
+                       CornerRadius="14"
+                       Padding="12,10" HasShadow="False"
+                       HorizontalOptions="Center">
+                    <StackLayout Orientation="Horizontal" Spacing="10">
+                        <Frame BackgroundColor="#4C51BF"
+                               CornerRadius="10"
+                               WidthRequest="34" HeightRequest="34"
+                               Padding="6" HasShadow="False">
+                            <Image Source="tarima.png"/>
+                        </Frame>
+                        <StackLayout Spacing="0" VerticalOptions="Center">
+                            <Label x:Name="TarimaTituloLabel"
+                                   Text="TARIMA A ENTREGAR"
+                                   TextColor="#6366F1" FontSize="9"
+                                   FontAttributes="Bold" CharacterSpacing="1"/>
+                            <Label x:Name="TarimaLabel"
+                                   TextColor="#3730A3" FontSize="18"
+                                   FontAttributes="Bold"/>
+                            <Label x:Name="PedidoLabel"
+                                   TextColor="#6B7280" FontSize="11"/>
+                        </StackLayout>
+                    </StackLayout>
+                </Frame>
+
+                <Label x:Name="EstadoLabel"
+                       TextColor="#374151" FontSize="14"
+                       FontAttributes="Bold"
+                       HorizontalTextAlignment="Center"
+                       LineBreakMode="WordWrap"/>
+
+                <Frame x:Name="ErrorFrame"
+                       IsVisible="False"
+                       BackgroundColor="#FEE2E2"
+                       CornerRadius="12"
+                       Padding="12,10" HasShadow="False">
+                    <Label x:Name="ErrorLabel"
+                           TextColor="#B91C1C" FontSize="12"
+                           LineBreakMode="WordWrap"/>
+                </Frame>
+
+                <Button x:Name="ActivarButton"
+                        IsVisible="False"
+                        Text="Activar NFC"
+                        BackgroundColor="#4C51BF"
+                        TextColor="White"
+                        CornerRadius="14"
+                        HeightRequest="46"
+                        FontAttributes="Bold"
+                        Clicked="OnActivarClicked"/>
+
+                <Button x:Name="CancelarButton"
+                        IsVisible="False"
+                        Text="Cancelar entrega"
+                        BackgroundColor="White"
+                        BorderColor="#E53E3E"
+                        BorderWidth="1"
+                        TextColor="#E53E3E"
+                        CornerRadius="14"
+                        HeightRequest="46"
+                        FontAttributes="Bold"
+                        Clicked="OnCancelarClicked"/>
+
+            </StackLayout>
+        </Frame>
+    </ScrollView>
+</ContentPage>

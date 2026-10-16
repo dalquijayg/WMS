@@ -36,7 +36,7 @@
                              HorizontalOptions="Center"
                              Spacing="1">
                     <Label x:Name="TituloLabel"
-                           Text="Detalle de Tarima"
+                           Text="Detalle de Hoja"
                            TextColor="White"
                            FontSize="16"
                            FontAttributes="Bold"
@@ -112,7 +112,7 @@
                Padding="6,4"
                HasShadow="False">
                     <StackLayout Spacing="1">
-                        <Label Text="Hojas"
+                        <Label Text="Tarimas"
                        FontSize="9"
                        TextColor="#718096"
                        HorizontalOptions="Center"/>
@@ -203,7 +203,7 @@
                                                Padding="6,4"
                                                HasShadow="False">
                                             <StackLayout Spacing="1">
-                                                <Label Text="En tarima"
+                                                <Label Text="Preparada"
                                                        FontSize="9"
                                                        TextColor="#718096"
                                                        HorizontalOptions="Center"/>

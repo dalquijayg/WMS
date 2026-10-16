@@ -116,6 +116,9 @@ namespace WMS_Movil
             ActualizarBannerPedidoAsignado();
             IniciarTimerBanner();
 
+            // Tarjetas NFC que quedaron sin configurar (la app se cerró a medias)
+            _ = ConfigurarTarjetaNfcPage.ProcesarPendientesAsync(Navigation);
+
             // Mostrar Mis Pedidos para todos los usuarios
             MisPedidosFrame.IsVisible = true;
             MisChequeosFrame.IsVisible = true;

@@ -1,5 +1,6 @@
 using MySqlConnector;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using WMS_Movil.Servicio;
 using Xamarin.Essentials;
@@ -8,7 +9,7 @@ using Xamarin.Forms.Xaml;
 
 namespace WMS_Movil
 {
-    // Rechequeo: se escanea el código de barras de la tarima (su IdTarima) y se abre
+    // Rechequeo: se lee la tarjeta NFC de la tarima (trae grabado su IdTarima) y se abre
     // directo el detalle, sin pasar por el número de pedido.
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class ListRechequeo : ContentPage
@@ -31,6 +32,7 @@ namespace WMS_Movil
         }
 
         private bool _buscando = false;
+        private CancellationTokenSource _nfcCancelacion;
 
         public ListRechequeo()
         {
@@ -40,9 +42,90 @@ namespace WMS_Movil
         protected override void OnAppearing()
         {
             base.OnAppearing();
-            TarimaCodigoEntry.Text = string.Empty;
-            Device.BeginInvokeOnMainThread(() => TarimaCodigoEntry.Focus());
+            _nfcCancelacion?.Cancel();
+            _nfcCancelacion = new CancellationTokenSource();
+            _ = EscucharTarjetasAsync(_nfcCancelacion.Token);
         }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            _nfcCancelacion?.Cancel();
+            _nfcCancelacion = null;
+            DependencyService.Get<INfcService>()?.Detener();
+        }
+
+        // Mientras la pantalla está visible espera tarjetas NFC; cada tarjeta trae grabado el IdTarima.
+        private async Task EscucharTarjetasAsync(CancellationToken cancelacion)
+        {
+            var nfc = DependencyService.Get<INfcService>();
+            if (nfc == null || !nfc.TieneNfc)
+            {
+                MostrarEstado("⚠️", "Este teléfono no tiene NFC", "No se pueden leer las tarjetas de las tarimas.");
+                return;
+            }
+
+            while (!cancelacion.IsCancellationRequested)
+            {
+                var espera = nfc.EsperarTarjetaAsync(cancelacion);
+
+                // Mientras se espera, avisar si el NFC está apagado
+                while (!espera.IsCompleted)
+                {
+                    bool activado = nfc.NfcActivado;
+                    NfcActivarButton.IsVisible = !activado;
+                    if (activado)
+                        MostrarEstado("📶", "Esperando tarjeta…", "Acerca la tarjeta a la parte trasera del teléfono");
+                    else
+                        MostrarEstado("⚠️", "El NFC está apagado", "Actívalo para poder leer las tarjetas.");
+                    await Task.WhenAny(espera, Task.Delay(1500));
+                }
+
+                TarjetaNfc tarjeta;
+                try
+                {
+                    tarjeta = await espera;
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                catch (NfcException ex)
+                {
+                    await DisplayAlert("Error", ex.Message, "OK");
+                    continue;
+                }
+
+                if (!tarjeta.Compatible)
+                {
+                    await DisplayAlert("Tarjeta no compatible",
+                        $"Este teléfono no puede leer los datos de esta tarjeta ({tarjeta.Tipo}, UID {tarjeta.Uid}).\n\n" +
+                        "Las MIFARE Classic solo se leen en teléfonos con chip NFC de NXP.", "OK");
+                    continue;
+                }
+
+                if (!int.TryParse(tarjeta.Texto, out int idTarima) || idTarima <= 0)
+                {
+                    await DisplayAlert("Tarjeta sin tarima",
+                        $"Esta tarjeta no tiene una tarima asignada.\n\nUID: {tarjeta.Uid}", "OK");
+                    continue;
+                }
+
+                MostrarEstado("✅", $"Tarima Id {idTarima}", $"UID: {tarjeta.Uid}");
+                await BuscarTarima(idTarima);
+            }
+        }
+
+        private void MostrarEstado(string icono, string estado, string detalle)
+        {
+            NfcIconoLabel.Text = icono;
+            NfcIconoFrame.BackgroundColor = Color.FromHex(icono == "✅" ? "#DCFCE7" : icono == "⚠️" ? "#FEF3C7" : "#E0E7FF");
+            NfcEstadoLabel.Text = estado;
+            NfcDetalleLabel.Text = detalle;
+        }
+
+        private void OnNfcActivarClicked(object sender, EventArgs e) =>
+            DependencyService.Get<INfcService>()?.AbrirAjustesNfc();
 
         private string BuildConnectionString() =>
             $"Server={Preferences.Get("ip_address", "")};Database={Preferences.Get("selected_database", "")};User ID={Preferences.Get("username", "")};Password={Preferences.Get("password", "")};";
@@ -52,35 +135,9 @@ namespace WMS_Movil
             await Navigation.PopAsync();
         }
 
-        private async void OnTarimaEscaneada(object sender, EventArgs e)
-        {
-            await BuscarTarima();
-        }
-
-        private async void OnBuscarTarimaClicked(object sender, EventArgs e)
-        {
-            await BuscarTarima();
-        }
-
-        private async Task BuscarTarima()
+        private async Task BuscarTarima(int idTarima)
         {
             if (_buscando) return;
-
-            var texto = TarimaCodigoEntry.Text?.Trim();
-
-            if (string.IsNullOrEmpty(texto))
-            {
-                await DisplayAlert("Atención", "Escanea el código de barras de la tarima.", "OK");
-                ReiniciarEscaneo();
-                return;
-            }
-
-            if (!int.TryParse(texto, out int idTarima) || idTarima <= 0)
-            {
-                await DisplayAlert("Código inválido", "El código de la tarima debe ser numérico.", "OK");
-                ReiniciarEscaneo();
-                return;
-            }
 
             _buscando = true;
             LoadingOverlay.IsVisible = true;
@@ -161,8 +218,7 @@ namespace WMS_Movil
 
                 if (tarima == null)
                 {
-                    await DisplayAlert("No encontrada", $"No existe una tarima con el código {idTarima}.", "OK");
-                    ReiniciarEscaneo();
+                    await DisplayAlert("No encontrada", $"No existe la tarima Id {idTarima} grabada en la tarjeta.", "OK");
                     return;
                 }
 
@@ -173,7 +229,6 @@ namespace WMS_Movil
                     await DisplayAlert("Rechequeo pendiente",
                         $"Tienes sin terminar la Tarima #{pendiente.NoTarima} del Pedido #{pendiente.IdPedido}.\n\n" +
                         "Debes finalizarla antes de rechequear otra tarima.", "OK");
-                    ReiniciarEscaneo();
                     return;
                 }
 
@@ -181,7 +236,6 @@ namespace WMS_Movil
                 {
                     await DisplayAlert("En preparación",
                         $"La {nombreTarima} aún está en preparación. Se podrá rechequear cuando sea entregada.", "OK");
-                    ReiniciarEscaneo();
                     return;
                 }
 
@@ -189,7 +243,6 @@ namespace WMS_Movil
                 {
                     await DisplayAlert("Tarima ya rechequeada",
                         $"La {nombreTarima} ya fue verificada completamente.", "OK");
-                    ReiniciarEscaneo();
                     return;
                 }
 
@@ -197,7 +250,6 @@ namespace WMS_Movil
                 {
                     await DisplayAlert("Tarima bloqueada",
                         $"La {nombreTarima} está siendo rechequeada por {tarima.NombreUsuarioChequeo}.", "OK");
-                    ReiniciarEscaneo();
                     return;
                 }
 
@@ -205,29 +257,20 @@ namespace WMS_Movil
                 {
                     await DisplayAlert("Tarima vacía",
                         $"La {nombreTarima} no tiene productos asignados.", "OK");
-                    ReiniciarEscaneo();
                     return;
                 }
 
-                TarimaCodigoEntry.Text = string.Empty;
                 await Navigation.PushAsync(new DetalleHojarechequeo(tarima.IdPedido, tarima.NoTarima));
             }
             catch (Exception ex)
             {
                 await DisplayAlert("Error", "Error al buscar la tarima: " + ex.Message, "OK");
-                ReiniciarEscaneo();
             }
             finally
             {
                 LoadingOverlay.IsVisible = false;
                 _buscando = false;
             }
-        }
-
-        private void ReiniciarEscaneo()
-        {
-            TarimaCodigoEntry.Text = string.Empty;
-            Device.BeginInvokeOnMainThread(() => TarimaCodigoEntry.Focus());
         }
     }
 }

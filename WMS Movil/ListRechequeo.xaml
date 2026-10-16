@@ -56,7 +56,7 @@
                                    FontSize="18"
                                    FontAttributes="Bold"
                                    HorizontalTextAlignment="Center"/>
-                            <Label Text="Escanea la tarima para verificarla"
+                            <Label Text="Acerca la tarjeta NFC de la tarima"
                                    TextColor="#C7D2FE"
                                    FontSize="11"
                                    HorizontalTextAlignment="Center"/>
@@ -75,8 +75,8 @@
                 </Grid>
 
                 <!-- ══════════════════════════════════════
-                     TARJETA: ESCANEAR TARIMA
-                     El código de barras de la tarima es su IdTarima.
+                     TARJETA: LEER TARJETA NFC
+                     La tarjeta NFC de la tarima tiene grabado su IdTarima.
                      ══════════════════════════════════════ -->
                 <Frame BackgroundColor="White"
                        CornerRadius="20"
@@ -96,12 +96,12 @@
                                        VerticalTextAlignment="Center"/>
                             </Frame>
                             <StackLayout Spacing="1" VerticalOptions="Center">
-                                <Label Text="ESCANEAR TARIMA"
+                                <Label Text="LEER TARIMA"
                                        TextColor="#4C51BF"
                                        FontSize="11"
                                        FontAttributes="Bold"
                                        CharacterSpacing="1"/>
-                                <Label Text="Escanea el código de barras de la tarima"
+                                <Label Text="Acerca la tarjeta NFC al teléfono"
                                        TextColor="#9CA3AF"
                                        FontSize="11"/>
                             </StackLayout>
@@ -109,30 +109,42 @@
 
                         <BoxView HeightRequest="1" Color="#F1F5F9"/>
 
-                        <Frame BackgroundColor="#F8FAFF"
-                               CornerRadius="12"
-                               Padding="14,4"
-                               HasShadow="False"
-                               BorderColor="#E0E7FF">
-                            <Entry x:Name="TarimaCodigoEntry"
-                                   Placeholder="Código de la tarima"
-                                   PlaceholderColor="#9CA3AF"
-                                   TextColor="#1E2235"
+                        <StackLayout Spacing="10" Padding="0,8">
+                            <Frame x:Name="NfcIconoFrame"
+                                   BackgroundColor="#E0E7FF"
+                                   CornerRadius="45"
+                                   WidthRequest="90" HeightRequest="90"
+                                   Padding="0" HasShadow="False"
+                                   HorizontalOptions="Center">
+                                <Label x:Name="NfcIconoLabel"
+                                       Text="📶" FontSize="40"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center"/>
+                            </Frame>
+                            <Label x:Name="NfcEstadoLabel"
+                                   Text="Esperando tarjeta…"
+                                   TextColor="#3730A3"
                                    FontSize="16"
                                    FontAttributes="Bold"
-                                   Keyboard="Numeric"
-                                   ReturnType="Search"
-                                   Completed="OnTarimaEscaneada"/>
-                        </Frame>
+                                   HorizontalTextAlignment="Center"/>
+                            <Label x:Name="NfcDetalleLabel"
+                                   Text="Acerca la tarjeta a la parte trasera del teléfono"
+                                   TextColor="#6B7280"
+                                   FontSize="12"
+                                   HorizontalTextAlignment="Center"
+                                   LineBreakMode="WordWrap"/>
+                        </StackLayout>
 
-                        <Button Text="Buscar tarima"
+                        <Button x:Name="NfcActivarButton"
+                                IsVisible="False"
+                                Text="Activar NFC"
                                 BackgroundColor="#4C51BF"
                                 TextColor="White"
                                 CornerRadius="14"
                                 HeightRequest="48"
                                 FontSize="14"
                                 FontAttributes="Bold"
-                                Clicked="OnBuscarTarimaClicked"/>
+                                Clicked="OnNfcActivarClicked"/>
                     </StackLayout>
                 </Frame>
 
