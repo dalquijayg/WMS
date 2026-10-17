@@ -90,54 +90,42 @@ namespace WMS_Movil
             }
         }
 
-        // Antes de mostrar el detalle se decide la tarima de embalaje:
-        // - si el usuario ya embaló productos de esta tarima en una tarima de embalaje que sigue
-        //   abierta, se retoma esa sin preguntar;
-        // - si la sucursal no tiene tarimas de embalaje abiertas, se registrará una nueva;
-        // - si ya tiene, se pregunta si crea una nueva o usa una ya creada.
+        // Cada vez que se entra a una tarima (aunque ya se haya empezado) se pregunta dónde se va a
+        // embalar: usar una tarima de embalaje ya creada (tocando su tarjeta en el detalle) o crear
+        // una nueva. Cancelar regresa a la pantalla principal.
         // uidTarjeta: tarjeta con la que se abrió (el detalle la ignora unos segundos).
         private async Task AbrirDetalleAsync(int idTarima, int idPedido, int noTarima, string uidTarjeta)
         {
-            int idUsuario = App.IdUsuarioActual;
-            TarimaEmbalaje ultima = null;
-            int abiertas = 0;
-
-            await Task.Run(() =>
+            int abiertas = await Task.Run(() =>
             {
                 using (var connection = new MySqlConnection(BuildConnectionString()))
                 {
                     connection.Open();
-                    ultima = EmbalajeTarimas.LeerUltimaDelUsuario(connection, idTarima, idUsuario);
-                    if (ultima != null) return;
-
                     int? idSucursal = EmbalajeTarimas.LeerSucursalPedido(connection, null, idPedido);
-                    if (idSucursal.HasValue)
-                        abiertas = EmbalajeTarimas.ListarAbiertas(connection, idSucursal.Value).Count;
+                    return idSucursal.HasValue
+                        ? EmbalajeTarimas.ListarAbiertas(connection, idSucursal.Value).Count
+                        : 0;
                 }
             });
+            LoadingOverlay.IsVisible = false;
 
-            var modo = DetalleHojarechequeo.ModoDestino.Retomar;
-            if (ultima == null)
+            const string usarCreada = "📶 Usar una tarima creada (tocar su tarjeta)";
+            const string crearNueva = "➕ Crear una tarima nueva";
+            string titulo = $"Tarima #{noTarima} del Pedido #{idPedido}\n" + (abiertas > 0
+                ? $"La sucursal tiene {abiertas} tarima{(abiertas == 1 ? "" : "s")} de embalaje abierta{(abiertas == 1 ? "" : "s")}. ¿Dónde va a embalar?"
+                : "La sucursal aún no tiene tarimas de embalaje abiertas.");
+            var opciones = abiertas > 0 ? new[] { usarCreada, crearNueva } : new[] { crearNueva };
+
+            string eleccion = await DisplayActionSheet(titulo, "Cancelar", null, opciones);
+            DetalleHojarechequeo.ModoDestino modo;
+            if (eleccion == usarCreada)
+                modo = DetalleHojarechequeo.ModoDestino.UsarCreada;
+            else if (eleccion == crearNueva)
+                modo = DetalleHojarechequeo.ModoDestino.CrearNueva;
+            else
             {
-                LoadingOverlay.IsVisible = false;
-                string tarima = $"Tarima #{noTarima} del Pedido #{idPedido}";
-                if (abiertas == 0)
-                {
-                    await DisplayAlert("Registrar tarima de embalaje",
-                        $"{tarima}\n\nEsta sucursal aún no tiene tarimas de embalaje abiertas.\n" +
-                        "En el detalle, toque la tarjeta de la tarima que será la tarima de embalaje.", "OK");
-                    modo = DetalleHojarechequeo.ModoDestino.CrearNueva;
-                }
-                else
-                {
-                    bool usarCreada = await DisplayAlert("Tarima de embalaje",
-                        $"{tarima}\n\nLa sucursal tiene {abiertas} tarima{(abiertas == 1 ? "" : "s")} de embalaje " +
-                        $"abierta{(abiertas == 1 ? "" : "s")}.\n¿Va a usar una tarima ya creada o va a crear una nueva?",
-                        "Usar una creada", "Crear nueva");
-                    modo = usarCreada
-                        ? DetalleHojarechequeo.ModoDestino.UsarCreada
-                        : DetalleHojarechequeo.ModoDestino.CrearNueva;
-                }
+                await Navigation.PopAsync(); // Cancelar: a la pantalla principal
+                return;
             }
 
             await Navigation.PushAsync(new DetalleHojarechequeo(idTarima, idPedido, noTarima, modo, uidTarjeta));

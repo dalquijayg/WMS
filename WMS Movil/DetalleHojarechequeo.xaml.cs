@@ -38,14 +38,12 @@ namespace WMS_Movil
         private int? idSucursal;
         private string nombreSucursal = "";
         private TarimaEmbalaje _tarimaEmbalaje;   // destino; null = falta tocar su tarjeta
-        private bool _destinoInicializado;
         private bool _registrandoNueva;           // la próxima tarjeta registra una tarima nueva
         private bool _procesandoTarjeta;
         private CancellationTokenSource _nfcCancelacion;
 
-        // Lo decide ListRechequeo antes de abrir el detalle (preguntando al usuario si hace falta).
-        public enum ModoDestino { Retomar, CrearNueva, UsarCreada }
-        private readonly ModoDestino modoDestino;
+        // Lo escoge el usuario en ListRechequeo cada vez que entra a la tarima.
+        public enum ModoDestino { CrearNueva, UsarCreada }
 
         // La tarjeta con la que se abrió el detalle puede seguir junto al teléfono y volver a
         // leerse al empezar a escuchar: se ignora durante unos segundos.
@@ -149,7 +147,6 @@ namespace WMS_Movil
             this.idTarima = idTarima;
             this.idPedido = idPedido;
             this.numeroTarima = numeroTarima;
-            this.modoDestino = modoDestino;
             this.uidTarjetaApertura = uidTarjetaApertura;
             _registrandoNueva = modoDestino == ModoDestino.CrearNueva;
 
@@ -160,7 +157,7 @@ namespace WMS_Movil
         protected override void OnAppearing()
         {
             base.OnAppearing();
-            _ = CargarInfoYDestinoAsync();
+            _ = CargarInfoPedido();
             CargarProductos();
 
             _ignorarAperturaHasta = DateTime.Now.AddSeconds(3);
@@ -175,14 +172,6 @@ namespace WMS_Movil
             _nfcCancelacion?.Cancel();
             _nfcCancelacion = null;
             DependencyService.Get<INfcService>()?.Detener();
-        }
-
-        private async Task CargarInfoYDestinoAsync()
-        {
-            await CargarInfoPedido();
-            if (_destinoInicializado) return;
-            _destinoInicializado = true;
-            await InicializarDestinoAsync();
         }
 
         private string BuildConnectionString() =>
@@ -627,13 +616,30 @@ namespace WMS_Movil
             return true;
         }
 
-        // Tarima terminada: avisa y vuelve a la pantalla anterior para escanear la siguiente.
+        // Tarima terminada (último producto rechequeado): pregunta si la tarima de embalaje se
+        // cierra o se mantiene abierta, y vuelve a la pantalla anterior para escanear la siguiente.
         private async Task RegresarAEscanearTarima()
         {
             AplicarFiltro();
             LoadingOverlay.IsVisible = false;
-            await DisplayAlert("Tarima rechequeada",
-                $"Se completó el rechequeo de la Tarima #{numeroTarima} del Pedido #{idPedido}.", "OK");
+
+            string terminada = $"Se completó el rechequeo de la Tarima #{numeroTarima} del Pedido #{idPedido}.";
+            var tarimaEmbalaje = _tarimaEmbalaje;
+            if (tarimaEmbalaje == null)
+            {
+                await DisplayAlert("Tarima rechequeada", terminada, "OK");
+            }
+            else
+            {
+                bool cerrar = await DisplayAlert("Tarima rechequeada",
+                    $"{terminada}\n\n¿Qué hace con la tarima de embalaje {tarimaEmbalaje.Codigo} " +
+                    $"({tarimaEmbalaje.CantidadSkus} SKU • {tarimaEmbalaje.CantidadFardos} fardos)?\n\n" +
+                    "Si la cierra, ya no se podrán meter ni quitar productos y su tarjeta quedará libre.",
+                    "Cerrarla", "Mantenerla abierta");
+                if (cerrar)
+                    await CerrarTarimaEmbalajeAsync(tarimaEmbalaje);
+            }
+
             await Navigation.PopAsync();
         }
 
@@ -674,36 +680,6 @@ namespace WMS_Movil
                     CerrarDestinoButton.IsVisible = false;
                 }
             });
-        }
-
-        // Al entrar: la pregunta "crear nueva / usar una creada" ya se hizo en ListRechequeo.
-        // Solo al retomar se carga la última tarima de embalaje (aún abierta) donde este usuario
-        // puso productos de esta tarima de preparación.
-        private async Task InicializarDestinoAsync()
-        {
-            if (modoDestino != ModoDestino.Retomar) return;
-            try
-            {
-                int idUsuario = App.IdUsuarioActual;
-                var ultima = await Task.Run(() =>
-                {
-                    using (var connection = new MySqlConnection(BuildConnectionString()))
-                    {
-                        connection.Open();
-                        return EmbalajeTarimas.LeerUltimaDelUsuario(connection, idTarima, idUsuario);
-                    }
-                });
-
-                if (_tarimaEmbalaje == null && ultima != null && ultima.IdSucursal == idSucursal)
-                {
-                    _tarimaEmbalaje = ultima;
-                    ActualizarPanelDestino();
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error cargando la tarima de embalaje: {ex.Message}");
-            }
         }
 
         // Mientras la pantalla está visible espera tarjetas: escoger destino o registrar una nueva.
@@ -885,6 +861,12 @@ namespace WMS_Movil
                 "Sí, cerrar", "Cancelar");
             if (!confirmar) return;
 
+            await CerrarTarimaEmbalajeAsync(tarima);
+        }
+
+        // Pasa la tarima de embalaje a Estado 2 y avisa el resultado.
+        private async Task CerrarTarimaEmbalajeAsync(TarimaEmbalaje tarima)
+        {
             LoadingOverlay.IsVisible = true;
             try
             {

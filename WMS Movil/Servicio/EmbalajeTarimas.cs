@@ -120,23 +120,6 @@ namespace WMS_Movil.Servicio
             }
         }
 
-        // Última tarima de embalaje, aún abierta, donde el usuario puso productos de esta tarima de
-        // preparación: al volver a entrar al rechequeo se carga sola.
-        public static TarimaEmbalaje LeerUltimaDelUsuario(MySqlConnection conn, int idTarima, int idUsuario)
-        {
-            using (var cmd = new MySqlCommand(
-                SqlTarima + @" WHERE te.Estado = @Embalando
-                  AND te.IdTarimaEmbalada = (SELECT d.IdTarimaEmbalada FROM DetalleTarimaEmbalada d
-                                             WHERE d.IdTarima = @IdTarima AND d.IdUsuario = @IdUsuario
-                                             ORDER BY d.Id DESC LIMIT 1)", conn))
-            {
-                cmd.Parameters.AddWithValue("@Embalando", EstadoEmbalando);
-                cmd.Parameters.AddWithValue("@IdTarima", idTarima);
-                cmd.Parameters.AddWithValue("@IdUsuario", idUsuario);
-                using (var r = cmd.ExecuteReader())
-                    return r.Read() ? LeerFila(r) : null;
-            }
-        }
 
         public static TarimaEmbalaje Leer(MySqlConnection conn, MySqlTransaction tr, int idTarimaEmbalada, bool bloquear = false)
         {
