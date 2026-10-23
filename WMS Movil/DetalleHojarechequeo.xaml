@@ -20,7 +20,7 @@
                 <!-- ══════════════════════════════════════
                      HEADER HERO
                      ══════════════════════════════════════ -->
-                <Grid HeightRequest="130">
+                <Grid HeightRequest="135">
                     <!-- Fondo base -->
                     <BoxView Color="#4C51BF"/>
                     <!-- Círculo decorativo superior derecho -->
@@ -45,7 +45,8 @@
                                BackgroundColor="#3B3FA0"
                                CornerRadius="12"
                                WidthRequest="38" HeightRequest="38"
-                               Padding="0" HasShadow="False">
+                               Padding="0" HasShadow="False"
+                               VerticalOptions="Center">
                             <Label Text="←" TextColor="White" FontSize="18"
                                    HorizontalTextAlignment="Center"
                                    VerticalTextAlignment="Center">
@@ -55,37 +56,60 @@
                             </Label>
                         </Frame>
 
-                        <StackLayout Grid.Column="1"
-                                     HorizontalOptions="Center"
-                                     VerticalOptions="Center"
-                                     Spacing="2">
-                            <Label Text="Detalle de Tarima"
-                                   TextColor="White"
-                                   FontSize="17"
-                                   FontAttributes="Bold"
-                                   HorizontalTextAlignment="Center"/>
-                            <Label x:Name="InfoPedidoLabel"
-                                   Text="Pedido #0  •  Tarima #0"
-                                   TextColor="#C7D2FE"
-                                   FontSize="12"
-                                   HorizontalTextAlignment="Center"/>
-                            <Label x:Name="EmpresaDepartamentoLabel"
-                                   IsVisible="False"
-                                   TextColor="#A5B4FC"
-                                   FontSize="11"
-                                   HorizontalTextAlignment="Center"
-                                   LineBreakMode="TailTruncation"/>
-                        </StackLayout>
+                        <!-- Pedido, tarima y empresa: en la información del ícono 📦 -->
+                        <Label Grid.Column="1"
+                               Text="Rechequeo"
+                               TextColor="White"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"/>
 
-                        <Frame Grid.Column="2"
-                               BackgroundColor="#3B3FA0"
-                               CornerRadius="12"
-                               WidthRequest="38" HeightRequest="38"
-                               Padding="7" HasShadow="False">
-                            <Label Text="📦" FontSize="16"
-                                   HorizontalTextAlignment="Center"
-                                   VerticalTextAlignment="Center"/>
-                        </Frame>
+                        <!-- Íconos de información: tarima preparada y tarima de embalaje -->
+                        <StackLayout Grid.Column="2"
+                                     Orientation="Horizontal"
+                                     Spacing="8"
+                                     VerticalOptions="Center">
+                            <StackLayout Spacing="3">
+                                <StackLayout.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnInfoPreparadaTapped"/>
+                                </StackLayout.GestureRecognizers>
+                                <Frame BackgroundColor="#3B3FA0"
+                                       CornerRadius="12"
+                                       WidthRequest="44" HeightRequest="44"
+                                       Padding="0" HasShadow="False"
+                                       HorizontalOptions="Center">
+                                    <Label Text="📦" FontSize="20"
+                                           HorizontalTextAlignment="Center"
+                                           VerticalTextAlignment="Center"/>
+                                </Frame>
+                                <Label Text="Preparada"
+                                       TextColor="#C7D2FE"
+                                       FontSize="9"
+                                       FontAttributes="Bold"
+                                       HorizontalTextAlignment="Center"/>
+                            </StackLayout>
+
+                            <StackLayout Spacing="3">
+                                <StackLayout.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnInfoEmbalajeTapped"/>
+                                </StackLayout.GestureRecognizers>
+                                <Frame x:Name="EmbalajeIconoFrame"
+                                       BackgroundColor="#FCD34D"
+                                       CornerRadius="12"
+                                       WidthRequest="44" HeightRequest="44"
+                                       Padding="6" HasShadow="False"
+                                       HorizontalOptions="Center">
+                                    <Image Source="tarima.png"/>
+                                </Frame>
+                                <Label x:Name="EmbalajeCodigoLabel"
+                                       Text="Elegir"
+                                       TextColor="#FDE68A"
+                                       FontSize="9"
+                                       FontAttributes="Bold"
+                                       HorizontalTextAlignment="Center"/>
+                            </StackLayout>
+                        </StackLayout>
                     </Grid>
                 </Grid>
 
@@ -145,66 +169,6 @@
                             </Label.GestureRecognizers>
                         </Label>
                     </StackLayout>
-                </Frame>
-
-                <!-- ══════════════════════════════════════
-                     TARIMA DE EMBALAJE (destino de lo que se rechequea)
-                     ══════════════════════════════════════ -->
-                <Frame BackgroundColor="White"
-                       CornerRadius="18"
-                       Padding="14,12"
-                       HasShadow="True"
-                       Margin="16,12,16,0">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                        <Frame Grid.Column="0"
-                               BackgroundColor="#FCD34D"
-                               CornerRadius="12"
-                               WidthRequest="44" HeightRequest="44"
-                               Padding="8" HasShadow="False"
-                               VerticalOptions="Center">
-                            <Image Source="tarima.png"/>
-                        </Frame>
-                        <StackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
-                            <Label Text="EMBALANDO EN"
-                                   TextColor="#B45309"
-                                   FontSize="10"
-                                   FontAttributes="Bold"
-                                   CharacterSpacing="1"/>
-                            <Label x:Name="DestinoCodigoLabel"
-                                   TextColor="#1E2235"
-                                   FontSize="17"
-                                   FontAttributes="Bold"/>
-                            <Label x:Name="DestinoDetalleLabel"
-                                   TextColor="#6B7280"
-                                   FontSize="11"
-                                   LineBreakMode="WordWrap"/>
-                        </StackLayout>
-                        <StackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
-                            <Button x:Name="NuevaDestinoButton"
-                                    Text="+ Nueva"
-                                    BackgroundColor="#EEF2FF"
-                                    TextColor="#4C51BF"
-                                    FontSize="11"
-                                    FontAttributes="Bold"
-                                    CornerRadius="10"
-                                    HeightRequest="34"
-                                    Padding="12,0"
-                                    Clicked="OnNuevaDestinoClicked"/>
-                            <Button x:Name="CerrarDestinoButton"
-                                    Text="Cerrar"
-                                    BackgroundColor="#FFF7ED"
-                                    TextColor="#C2410C"
-                                    BorderColor="#FDBA74"
-                                    BorderWidth="1"
-                                    FontSize="11"
-                                    FontAttributes="Bold"
-                                    CornerRadius="10"
-                                    HeightRequest="34"
-                                    Padding="12,0"
-                                    IsVisible="False"
-                                    Clicked="OnCerrarDestinoClicked"/>
-                        </StackLayout>
-                    </Grid>
                 </Frame>
 
                 <!-- ══════════════════════════════════════
@@ -378,6 +342,387 @@
 
             </StackLayout>
         </ScrollView>
+
+        <!-- ══════════════════════════════════════
+             PASO 2: ESCOGER TARIMA DE EMBALAJE
+             Se muestra al entrar si aún no hay tarima de embalaje (o con "Cambiar").
+             Se elige tocando la tarjeta de la tarima; una tarjeta libre crea una nueva.
+             ══════════════════════════════════════ -->
+        <Grid x:Name="DestinoOverlay"
+              IsVisible="False"
+              BackgroundColor="#B3000000">
+            <ScrollView VerticalOptions="Center">
+                <Frame BackgroundColor="White"
+                       CornerRadius="22"
+                       Padding="0"
+                       HasShadow="True"
+                       IsClippedToBounds="True"
+                       Margin="16">
+                    <StackLayout Spacing="0">
+
+                        <!-- Paso 1 listo -->
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10"
+                              BackgroundColor="#EEF2FF" Padding="16,10">
+                            <Label Grid.Column="0" Text="✔" TextColor="#4C51BF"
+                                   FontSize="16" FontAttributes="Bold" VerticalOptions="Center"/>
+                            <StackLayout Grid.Column="1" Spacing="0">
+                                <Label Text="PASO 1  •  TARIMA PREPARADA"
+                                       TextColor="#4C51BF" FontSize="10"
+                                       FontAttributes="Bold" CharacterSpacing="1"/>
+                                <Label x:Name="OverlayPreparadaLabel"
+                                       TextColor="#3730A3" FontSize="13" FontAttributes="Bold"/>
+                            </StackLayout>
+                        </Grid>
+
+                        <!-- Paso 2 -->
+                        <StackLayout Padding="18,16" Spacing="12">
+                            <Label Text="PASO 2  •  TARIMA DE EMBALAJE"
+                                   TextColor="#B45309" FontSize="10"
+                                   FontAttributes="Bold" CharacterSpacing="1"/>
+
+                            <Frame BackgroundColor="#FCD34D"
+                                   CornerRadius="40"
+                                   WidthRequest="80" HeightRequest="80"
+                                   Padding="0" HasShadow="False"
+                                   HorizontalOptions="Center">
+                                <Label Text="📶" FontSize="34"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center"/>
+                            </Frame>
+
+                            <Label x:Name="OverlayTituloLabel"
+                                   TextColor="#1E2235" FontSize="18" FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center"/>
+                            <Label x:Name="OverlayMensajeLabel"
+                                   TextColor="#4B5563" FontSize="13"
+                                   HorizontalTextAlignment="Center"
+                                   LineBreakMode="WordWrap"/>
+
+                            <!-- Tarimas de embalaje abiertas de la sucursal -->
+                            <Frame x:Name="OverlayAbiertasFrame"
+                                   BackgroundColor="#FFFBEB"
+                                   BorderColor="#FCD34D"
+                                   CornerRadius="12"
+                                   Padding="12,10"
+                                   HasShadow="False">
+                                <StackLayout Spacing="4">
+                                    <Label x:Name="OverlayAbiertasTituloLabel"
+                                           TextColor="#B45309" FontSize="11" FontAttributes="Bold"/>
+                                    <Label x:Name="OverlayAbiertasLabel"
+                                           TextColor="#78350F" FontSize="12"
+                                           LineBreakMode="WordWrap"/>
+                                </StackLayout>
+                            </Frame>
+
+                            <Label x:Name="OverlayAyudaLabel"
+                                   TextColor="#6B7280" FontSize="11"
+                                   LineBreakMode="WordWrap"/>
+
+                            <Button x:Name="OverlayNuevaButton"
+                                    BackgroundColor="#FFFBEB"
+                                    TextColor="#B45309"
+                                    BorderColor="#FCD34D"
+                                    BorderWidth="1"
+                                    FontSize="13"
+                                    FontAttributes="Bold"
+                                    CornerRadius="12"
+                                    HeightRequest="46"
+                                    Clicked="OnOverlayNuevaClicked"/>
+                            <Button x:Name="OverlayCancelarButton"
+                                    BackgroundColor="Transparent"
+                                    TextColor="#6B7280"
+                                    FontSize="12"
+                                    HeightRequest="40"
+                                    Clicked="OnOverlayCancelarClicked"/>
+                        </StackLayout>
+                    </StackLayout>
+                </Frame>
+            </ScrollView>
+        </Grid>
+
+        <!-- ══════════════════════════════════════
+             INFORMACIÓN (se abre con los íconos del header, animada)
+             Tarima preparada o tarima de embalaje; las filas se llenan en código.
+             ══════════════════════════════════════ -->
+        <Grid x:Name="InfoOverlay"
+              IsVisible="False"
+              BackgroundColor="#99000000">
+            <Grid.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnInfoCerrarTapped"/>
+            </Grid.GestureRecognizers>
+            <Frame x:Name="InfoCard"
+                   BackgroundColor="White"
+                   CornerRadius="22"
+                   Padding="0"
+                   HasShadow="True"
+                   IsClippedToBounds="True"
+                   VerticalOptions="Center"
+                   Margin="20">
+                <!-- Tocar dentro de la tarjeta no la cierra -->
+                <Frame.GestureRecognizers>
+                    <TapGestureRecognizer/>
+                </Frame.GestureRecognizers>
+                <StackLayout Spacing="0">
+                    <Grid x:Name="InfoEncabezado"
+                          ColumnDefinitions="Auto,*"
+                          ColumnSpacing="12"
+                          Padding="18,14">
+                        <Frame x:Name="InfoIconoFrame"
+                               Grid.Column="0"
+                               CornerRadius="12"
+                               WidthRequest="44" HeightRequest="44"
+                               Padding="6" HasShadow="False"
+                               VerticalOptions="Center">
+                            <Grid>
+                                <Label x:Name="InfoIconoLabel" Text="📦" FontSize="20"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center"/>
+                                <Image x:Name="InfoIconoImage" Source="tarima.png" IsVisible="False"/>
+                            </Grid>
+                        </Frame>
+                        <StackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                            <Label x:Name="InfoSubtituloLabel"
+                                   FontSize="10" FontAttributes="Bold" CharacterSpacing="1"/>
+                            <Label x:Name="InfoTituloLabel"
+                                   TextColor="#1E2235" FontSize="18" FontAttributes="Bold"/>
+                        </StackLayout>
+                    </Grid>
+
+                    <StackLayout x:Name="InfoFilasStack" Padding="18,12,18,4" Spacing="10"/>
+
+                    <Label x:Name="InfoNotaLabel"
+                           Margin="18,4,18,0"
+                           TextColor="#6B7280" FontSize="11"
+                           LineBreakMode="WordWrap"/>
+
+                    <StackLayout Padding="18,14,18,16" Spacing="8">
+                        <Grid x:Name="InfoAccionesEmbalaje" ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <Button x:Name="InfoCambiarButton"
+                                    Grid.Column="0"
+                                    Text="Cambiar"
+                                    BackgroundColor="#FFFBEB"
+                                    TextColor="#B45309"
+                                    BorderColor="#FCD34D"
+                                    BorderWidth="1"
+                                    FontSize="12"
+                                    FontAttributes="Bold"
+                                    CornerRadius="12"
+                                    HeightRequest="44"
+                                    Clicked="OnInfoCambiarClicked"/>
+                            <Button x:Name="InfoCerrarTarimaButton"
+                                    Grid.Column="1"
+                                    Text="Cerrar tarima"
+                                    BackgroundColor="#FFF7ED"
+                                    TextColor="#C2410C"
+                                    BorderColor="#FDBA74"
+                                    BorderWidth="1"
+                                    FontSize="12"
+                                    FontAttributes="Bold"
+                                    CornerRadius="12"
+                                    HeightRequest="44"
+                                    Clicked="OnInfoCerrarTarimaClicked"/>
+                        </Grid>
+                        <Button Text="Listo"
+                                BackgroundColor="#4C51BF"
+                                TextColor="White"
+                                FontSize="13"
+                                FontAttributes="Bold"
+                                CornerRadius="12"
+                                HeightRequest="44"
+                                Clicked="OnInfoCerrarTapped"/>
+                    </StackLayout>
+                </StackLayout>
+            </Frame>
+        </Grid>
+
+        <!-- ══════════════════════════════════════
+             TARIMA TERMINADA: resumen y qué hacer con la tarima de embalaje
+             ══════════════════════════════════════ -->
+        <Grid x:Name="FinOverlay"
+              IsVisible="False"
+              BackgroundColor="#B3000000">
+            <ScrollView VerticalOptions="Center">
+                <Frame x:Name="FinCard"
+                       BackgroundColor="White"
+                       CornerRadius="24"
+                       Padding="0"
+                       HasShadow="True"
+                       IsClippedToBounds="True"
+                       Margin="18">
+                    <StackLayout Spacing="0">
+
+                        <!-- Felicitación -->
+                        <StackLayout BackgroundColor="#ECFDF5" Padding="18,22,18,16" Spacing="6">
+                            <Frame x:Name="FinIconoFrame"
+                                   BackgroundColor="#22C55E"
+                                   CornerRadius="36"
+                                   WidthRequest="72" HeightRequest="72"
+                                   Padding="0" HasShadow="False"
+                                   HorizontalOptions="Center">
+                                <Label Text="✓" TextColor="White" FontSize="38" FontAttributes="Bold"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center"/>
+                            </Frame>
+                            <Label Text="¡Tarima rechequeada!"
+                                   TextColor="#065F46" FontSize="20" FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center" Margin="0,6,0,0"/>
+                            <Label x:Name="FinSubtituloLabel"
+                                   TextColor="#047857" FontSize="13"
+                                   HorizontalTextAlignment="Center"/>
+
+                            <StackLayout Orientation="Horizontal" Spacing="8"
+                                         HorizontalOptions="Center" Margin="0,6,0,0">
+                                <Frame BackgroundColor="White" CornerRadius="10"
+                                       Padding="10,5" HasShadow="False">
+                                    <Label x:Name="FinCorrectosLabel"
+                                           TextColor="#38A169" FontSize="12" FontAttributes="Bold"/>
+                                </Frame>
+                                <Frame x:Name="FinDiferenciaFrame"
+                                       BackgroundColor="White" CornerRadius="10"
+                                       Padding="10,5" HasShadow="False">
+                                    <Label x:Name="FinDiferenciaLabel"
+                                           TextColor="#E53E3E" FontSize="12" FontAttributes="Bold"/>
+                                </Frame>
+                            </StackLayout>
+                        </StackLayout>
+
+                        <!-- Tarima de embalaje -->
+                        <StackLayout x:Name="FinEmbalajeStack" Padding="18,16,18,4" Spacing="12">
+                            <Frame BackgroundColor="#FFFBEB" BorderColor="#FCD34D"
+                                   CornerRadius="14" Padding="12" HasShadow="False">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                    <Frame Grid.Column="0"
+                                           BackgroundColor="#FCD34D" CornerRadius="10"
+                                           WidthRequest="42" HeightRequest="42"
+                                           Padding="6" HasShadow="False"
+                                           VerticalOptions="Center">
+                                        <Image Source="tarima.png"/>
+                                    </Frame>
+                                    <StackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                                        <Label Text="TARIMA DE EMBALAJE"
+                                               TextColor="#B45309" FontSize="10"
+                                               FontAttributes="Bold" CharacterSpacing="1"/>
+                                        <Label x:Name="FinEmbalajeCodigoLabel"
+                                               TextColor="#1E2235" FontSize="16" FontAttributes="Bold"/>
+                                        <Label x:Name="FinEmbalajeDetalleLabel"
+                                               TextColor="#6B7280" FontSize="12"/>
+                                    </StackLayout>
+                                </Grid>
+                            </Frame>
+
+                            <Label Text="¿La tarima de embalaje ya está lista para enviar?"
+                                   TextColor="#1E2235" FontSize="15" FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center"/>
+
+                            <!-- Seguir llenándola -->
+                            <Frame BackgroundColor="#4C51BF" CornerRadius="14"
+                                   Padding="14,12" HasShadow="False">
+                                <Frame.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnFinMantenerTapped"/>
+                                </Frame.GestureRecognizers>
+                                <StackLayout Spacing="2">
+                                    <Label Text="📦  No, seguir llenándola"
+                                           TextColor="White" FontSize="15" FontAttributes="Bold"/>
+                                    <Label Text="Queda abierta para poner productos de otra tarima preparada."
+                                           TextColor="#C7D2FE" FontSize="11" LineBreakMode="WordWrap"/>
+                                </StackLayout>
+                            </Frame>
+
+                            <!-- Cerrarla -->
+                            <Frame BackgroundColor="#FFF7ED" BorderColor="#FDBA74"
+                                   CornerRadius="14" Padding="14,12" HasShadow="False">
+                                <Frame.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnFinCerrarTapped"/>
+                                </Frame.GestureRecognizers>
+                                <StackLayout Spacing="2">
+                                    <Label Text="🔒  Sí, ya está lista: cerrarla"
+                                           TextColor="#C2410C" FontSize="15" FontAttributes="Bold"/>
+                                    <Label Text="Ya no se le podrán agregar ni quitar productos y su tarjeta quedará libre."
+                                           TextColor="#9A3412" FontSize="11" LineBreakMode="WordWrap"/>
+                                </StackLayout>
+                            </Frame>
+                        </StackLayout>
+
+                        <!-- Sin tarima de embalaje: solo continuar -->
+                        <Button x:Name="FinContinuarButton"
+                                Text="Continuar"
+                                BackgroundColor="#4C51BF"
+                                TextColor="White"
+                                FontSize="14"
+                                FontAttributes="Bold"
+                                CornerRadius="14"
+                                HeightRequest="48"
+                                Margin="18,16,18,0"
+                                Clicked="OnFinMantenerTapped"/>
+
+                        <Label Text="Después podrá tocar la tarjeta de la siguiente tarima preparada."
+                               TextColor="#9CA3AF" FontSize="11"
+                               HorizontalTextAlignment="Center"
+                               Margin="18,10,18,18"/>
+                    </StackLayout>
+                </Frame>
+            </ScrollView>
+        </Grid>
+
+        <!-- ══════════════════════════════════════
+             DIÁLOGO AMIGABLE (confirmaciones y avisos)
+             Va encima de las demás ventanas; se llena con ConfirmarAsync / AvisarAsync.
+             ══════════════════════════════════════ -->
+        <Grid x:Name="DialogoOverlay"
+              IsVisible="False"
+              BackgroundColor="#B3000000">
+            <Frame x:Name="DialogoCard"
+                   BackgroundColor="White"
+                   CornerRadius="24"
+                   Padding="20,24,20,16"
+                   HasShadow="True"
+                   VerticalOptions="Center"
+                   Margin="24">
+                <StackLayout Spacing="10">
+                    <Frame x:Name="DialogoIconoFrame"
+                           CornerRadius="34"
+                           WidthRequest="68" HeightRequest="68"
+                           Padding="0" HasShadow="False"
+                           HorizontalOptions="Center">
+                        <Label x:Name="DialogoIconoLabel" FontSize="30"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center"/>
+                    </Frame>
+                    <Label x:Name="DialogoTituloLabel"
+                           TextColor="#1E2235" FontSize="19" FontAttributes="Bold"
+                           HorizontalTextAlignment="Center" Margin="0,4,0,0"/>
+                    <Label x:Name="DialogoMensajeLabel"
+                           TextColor="#4B5563" FontSize="14"
+                           HorizontalTextAlignment="Center"
+                           LineBreakMode="WordWrap"/>
+                    <Frame x:Name="DialogoNotaFrame"
+                           BackgroundColor="#FFFBEB"
+                           BorderColor="#FCD34D"
+                           CornerRadius="12"
+                           Padding="12,10"
+                           HasShadow="False"
+                           Margin="0,4,0,0">
+                        <Label x:Name="DialogoNotaLabel"
+                               TextColor="#92400E" FontSize="12"
+                               LineBreakMode="WordWrap"/>
+                    </Frame>
+                    <Button x:Name="DialogoSiButton"
+                            TextColor="White"
+                            FontSize="14"
+                            FontAttributes="Bold"
+                            CornerRadius="14"
+                            HeightRequest="48"
+                            Margin="0,8,0,0"
+                            Clicked="OnDialogoSiClicked"/>
+                    <Button x:Name="DialogoNoButton"
+                            BackgroundColor="Transparent"
+                            TextColor="#6B7280"
+                            FontSize="13"
+                            HeightRequest="42"
+                            Clicked="OnDialogoNoClicked"/>
+                </StackLayout>
+            </Frame>
+        </Grid>
 
         <!-- ══════════════════════════════════════
              OVERLAY DE CARGA

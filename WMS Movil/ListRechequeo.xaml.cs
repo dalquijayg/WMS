@@ -90,45 +90,13 @@ namespace WMS_Movil
             }
         }
 
-        // Cada vez que se entra a una tarima (aunque ya se haya empezado) se pregunta dónde se va a
-        // embalar: usar una tarima de embalaje ya creada (tocando su tarjeta en el detalle) o crear
-        // una nueva. Cancelar regresa a la pantalla principal.
+        // Paso 1 listo (tarima preparada validada): se abre el detalle. Si aún no hay tarima de
+        // embalaje, el detalle la pide de inmediato (paso 2).
         // uidTarjeta: tarjeta con la que se abrió (el detalle la ignora unos segundos).
         private async Task AbrirDetalleAsync(int idTarima, int idPedido, int noTarima, string uidTarjeta)
         {
-            int abiertas = await Task.Run(() =>
-            {
-                using (var connection = new MySqlConnection(BuildConnectionString()))
-                {
-                    connection.Open();
-                    int? idSucursal = EmbalajeTarimas.LeerSucursalPedido(connection, null, idPedido);
-                    return idSucursal.HasValue
-                        ? EmbalajeTarimas.ListarAbiertas(connection, idSucursal.Value).Count
-                        : 0;
-                }
-            });
             LoadingOverlay.IsVisible = false;
-
-            const string usarCreada = "📶 Usar una tarima creada (tocar su tarjeta)";
-            const string crearNueva = "➕ Crear una tarima nueva";
-            string titulo = $"Tarima #{noTarima} del Pedido #{idPedido}\n" + (abiertas > 0
-                ? $"La sucursal tiene {abiertas} tarima{(abiertas == 1 ? "" : "s")} de embalaje abierta{(abiertas == 1 ? "" : "s")}. ¿Dónde va a embalar?"
-                : "La sucursal aún no tiene tarimas de embalaje abiertas.");
-            var opciones = abiertas > 0 ? new[] { usarCreada, crearNueva } : new[] { crearNueva };
-
-            string eleccion = await DisplayActionSheet(titulo, "Cancelar", null, opciones);
-            DetalleHojarechequeo.ModoDestino modo;
-            if (eleccion == usarCreada)
-                modo = DetalleHojarechequeo.ModoDestino.UsarCreada;
-            else if (eleccion == crearNueva)
-                modo = DetalleHojarechequeo.ModoDestino.CrearNueva;
-            else
-            {
-                await Navigation.PopAsync(); // Cancelar: a la pantalla principal
-                return;
-            }
-
-            await Navigation.PushAsync(new DetalleHojarechequeo(idTarima, idPedido, noTarima, modo, uidTarjeta));
+            await Navigation.PushAsync(new DetalleHojarechequeo(idTarima, idPedido, noTarima, uidTarjeta));
         }
 
         // Rechequeo que el usuario empezó y no ha terminado, en cualquier pedido (sin contar excluirIdTarima).
@@ -187,7 +155,7 @@ namespace WMS_Movil
                     bool activado = nfc.NfcActivado;
                     NfcActivarButton.IsVisible = !activado;
                     if (activado)
-                        MostrarEstado("📶", "Esperando tarjeta…", "Acerca la tarjeta a la parte trasera del teléfono");
+                        MostrarEstado("📶", "Esperando tarjeta…", "Acerque la tarjeta de la tarima preparada a la parte trasera del teléfono");
                     else
                         MostrarEstado("⚠️", "El NFC está apagado", "Actívalo para poder leer las tarjetas.");
                     await Task.WhenAny(espera, Task.Delay(1500));
@@ -222,7 +190,7 @@ namespace WMS_Movil
                 if (!int.TryParse(tarjeta.Texto, out int idTarima) || idTarima <= 0)
                 {
                     await DisplayAlert("Tarjeta sin tarima",
-                        $"Esta tarjeta no tiene una tarima asignada.\n\nUID: {tarjeta.Uid}", "OK");
+                        $"Esta tarjeta no tiene una tarima preparada asignada.\n\nUID: {tarjeta.Uid}", "OK");
                     continue;
                 }
 
@@ -317,13 +285,13 @@ namespace WMS_Movil
 
                 string nombreTarima = $"Tarima #{tarima.NoTarima} del Pedido #{tarima.IdPedido}";
 
+                // No se puede pasar a otra tarima: siempre se regresa a la pendiente
                 if (pendiente != null)
                 {
-                    bool continuar = await DisplayAlert("Rechequeo pendiente",
-                        $"Tienes sin terminar la Tarima #{pendiente.NoTarima} del Pedido #{pendiente.IdPedido}.\n\n" +
-                        "Debes finalizarla antes de rechequear otra tarima.", "Continuarla", "Cerrar");
-                    if (continuar)
-                        await AbrirDetalleAsync(pendiente.IdTarima, pendiente.IdPedido, pendiente.NoTarima, null);
+                    await DisplayAlert("Rechequeo pendiente",
+                        $"Tiene sin terminar la Tarima #{pendiente.NoTarima} del Pedido #{pendiente.IdPedido}.\n\n" +
+                        "Debe finalizarla antes de rechequear otra tarima.", "Continuarla");
+                    await AbrirDetalleAsync(pendiente.IdTarima, pendiente.IdPedido, pendiente.NoTarima, null);
                     return;
                 }
 

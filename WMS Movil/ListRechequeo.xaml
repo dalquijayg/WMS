@@ -56,7 +56,7 @@
                                    FontSize="18"
                                    FontAttributes="Bold"
                                    HorizontalTextAlignment="Center"/>
-                            <Label Text="Acerca la tarjeta NFC de la tarima"
+                            <Label Text="Paso 1: tarjeta de la tarima preparada"
                                    TextColor="#C7D2FE"
                                    FontSize="11"
                                    HorizontalTextAlignment="Center"/>
@@ -96,14 +96,15 @@
                                        VerticalTextAlignment="Center"/>
                             </Frame>
                             <StackLayout Spacing="1" VerticalOptions="Center">
-                                <Label Text="LEER TARIMA"
+                                <Label Text="📦 TARIMA PREPARADA"
                                        TextColor="#4C51BF"
                                        FontSize="11"
                                        FontAttributes="Bold"
                                        CharacterSpacing="1"/>
-                                <Label Text="Acerca la tarjeta NFC al teléfono"
+                                <Label Text="La que va a rechequear. Después se le pedirá la tarima de embalaje."
                                        TextColor="#9CA3AF"
-                                       FontSize="11"/>
+                                       FontSize="11"
+                                       LineBreakMode="WordWrap"/>
                             </StackLayout>
                         </StackLayout>
 
@@ -128,7 +129,7 @@
                                    FontAttributes="Bold"
                                    HorizontalTextAlignment="Center"/>
                             <Label x:Name="NfcDetalleLabel"
-                                   Text="Acerca la tarjeta a la parte trasera del teléfono"
+                                   Text="Acerque la tarjeta de la tarima preparada a la parte trasera del teléfono"
                                    TextColor="#6B7280"
                                    FontSize="12"
                                    HorizontalTextAlignment="Center"
